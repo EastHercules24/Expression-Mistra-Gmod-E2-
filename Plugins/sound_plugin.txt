@@ -1,0 +1,111 @@
+@name Sound Plugin
+@inputs ArrayIn:array SystemRegistered AudioOut1:entity AudioOut2:entity AudioOut3:entity AudioOut4:entity
+@outputs ArrayOut:array Name:string Version:string Maker:string Extra:string AudioOutArray:array
+@persist AudioInfo:array AudioInfo2:array NuhUhText
+@model models/props/cs_office/computer_caseb_p3a.mdl
+@trigger
+
+# Information
+Name = "Sound Plugin"
+Version = "1.1.0"
+Maker = "Made by HellYeah24"
+Extra = "Now enables sounds!"
+
+if (SystemRegistered) {
+    # How to wirte code for the system to ask, use or do:
+    if (ArrayIn[1,string] == "SoundPlug") {
+        local A1 = "Not Connected!"
+        local A2 = "Not Connected!"
+        local A3 = "Not Connected!"
+        local A4 = "Not Connected!"
+        if (AudioOut1 != noentity()) {
+            A1 = "Connected!"
+        }
+        if (AudioOut2 != noentity()) {
+            A2 = "Connected!"
+        }
+        if (AudioOut3 != noentity()) {
+            A3 = "Connected!"
+        }
+        if (AudioOut4 != noentity()) {
+            A4 = "Connected!"
+        } 
+        
+        ArrayOut = array(
+        "PE(print 255 255 255 Sound Plug Tester:)",
+        "PE(print 255 255 255 Audio Entity 1: " + A1 +" Type: " + AudioOut1:model() + ")",
+        "PE(print 255 255 255 Audio Entity 2: " + A2 +" Type: " + AudioOut2:model() + ")",
+        "PE(print 255 255 255 Audio Entity 3: " + A3 +" Type: " + AudioOut3:model() + ")",
+        "PE(print 255 255 255 Audio Entity 4: " + A4 +" Type: " + AudioOut4:model() + ")",
+        "PE(print 255 255 255 Done!)"
+        )
+    }
+    
+    # Rest of functions
+    AudioInfo = ArrayIn[1,string]:explode(" ")
+    if (AudioInfo[2,string] == "1") {
+        if (AudioOut1 != noentity() && ArrayIn:count() > 0) {
+            AudioOut1:soundPlay(AudioInfo[2,string]:toNumber(),AudioInfo[3,string]:toNumber(),AudioInfo[4,string])
+        }
+        if (AudioOut2 != noentity() && ArrayIn:count() > 0) {
+            AudioOut2:soundPlay(AudioInfo[2,string]:toNumber()+1,AudioInfo[3,string]:toNumber(),AudioInfo[4,string])
+        }
+        if (AudioOut3 != noentity() && ArrayIn:count() > 0) {
+            AudioOut3:soundPlay(AudioInfo[2,string]:toNumber()+2,AudioInfo[3,string]:toNumber(),AudioInfo[4,string])
+        }
+        if (AudioOut4 != noentity() && ArrayIn:count() > 0) {
+            AudioOut4:soundPlay(AudioInfo[2,string]:toNumber()+3,AudioInfo[3,string]:toNumber(),AudioInfo[4,string])
+        }
+    } elseif (AudioInfo[2,string] == "2") {
+        if (AudioOut1 != noentity() && ArrayIn:count() > 0) {
+            soundVolume(AudioInfo[2,string]:toNumber(),AudioInfo[3,string]:toNumber())
+        }
+        if (AudioOut2 != noentity() && ArrayIn:count() > 0) {
+            soundVolume(AudioInfo[2,string]:toNumber()+1,AudioInfo[3,string]:toNumber())
+        }
+        if (AudioOut3 != noentity() && ArrayIn:count() > 0) {
+            soundVolume(AudioInfo[2,string]:toNumber()+2,AudioInfo[3,string]:toNumber())
+        }
+        if (AudioOut4 != noentity() && ArrayIn:count() > 0) {
+            soundVolume(AudioInfo[2,string]:toNumber()+3,AudioInfo[3,string]:toNumber())
+        }
+    } elseif (AudioInfo[2,string] == "3") {
+        if (AudioOut1 != noentity() && ArrayIn:count() > 0) {
+            soundPitch(AudioInfo[2,string]:toNumber(),AudioInfo[3,string]:toNumber())
+        }
+        if (AudioOut2 != noentity() && ArrayIn:count() > 0) {
+            soundPitch(AudioInfo[2,string]:toNumber()+1,AudioInfo[3,string]:toNumber())
+        }
+        if (AudioOut3 != noentity() && ArrayIn:count() > 0) {
+            soundPitch(AudioInfo[2,string]:toNumber()+2,AudioInfo[3,string]:toNumber())
+        }
+        if (AudioOut4 != noentity() && ArrayIn:count() > 0) {
+            soundPitch(AudioInfo[2,string]:toNumber()+3,AudioInfo[3,string]:toNumber())
+        }
+    } elseif (AudioInfo[2,string] == "4") {
+        if (AudioOut1 != noentity() && ArrayIn:count() > 0) {
+            soundStop(AudioInfo[2,string]:toNumber())
+        }
+        if (AudioOut2 != noentity() && ArrayIn:count() > 0) {
+            soundStop(AudioInfo[2,string]:toNumber()+1)
+        }
+        if (AudioOut3 != noentity() && ArrayIn:count() > 0) {
+            soundStop(AudioInfo[2,string]:toNumber()+2)
+        }
+        if (AudioOut4 != noentity() && ArrayIn:count() > 0) {
+            soundStop(AudioInfo[2,string]:toNumber()+3)
+        }
+    }
+    
+    AudioOutArray = ArrayIn
+    if (AudioOut1 != noentity() && ArrayIn:count() > 0 || AudioOut2 != noentity() && ArrayIn:count() > 0 || AudioOut3 != noentity() && ArrayIn:count() > 0 || AudioOut4 != noentity() && ArrayIn:count() > 0 ) {
+        #reset()
+    }
+    
+    ArrayOut = array(
+    "PE(editprint 1 255 255 0 Sound Plugin - 1.1.0)",
+    "PE(print 255 255 255  )",
+    "PCC(AddProgram soundPlug SoundPlug)"
+    )
+}
+

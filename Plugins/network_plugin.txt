@@ -1,0 +1,42 @@
+@name Network Plugin
+@inputs ArrayIn:array LANIn:array SystemRegistered
+@outputs Name:string Version:string Maker:string Extra:string ArrayOut:array LANOut:array LightOut LightIn
+@persist CloneIn:array CloneOut:array GoArray
+@model models/props/cs_office/computer_caseb_p2a.mdl
+@trigger
+
+# Information
+Name = "Network Plugin"
+Version = "0.0.1"
+Maker = "Made by HellYeah24"
+Extra = "Allows you to connect to networks"
+
+if (SystemRegistered == 1) {
+    LightOut = 1
+    LightIn = 1
+    
+    ArrayOut = array(
+    "PE(editprint 1 255 255 0 Network Plugin - 0.0.1)",
+    "PE(print 255 255 255  )"
+    )
+    
+    if (CloneIn:toString() == ArrayIn:toString()) {
+        LightOut = 0
+    } else {
+        LightOut = 1
+        CloneIn = ArrayIn:clone()
+    }
+        
+    if (CloneOut:toString() == LANIn:toString()) {
+        LightIn = 0
+    } else {
+        LightIn = 1
+        CloneOut = LANIn:clone()
+    }
+
+    LANOut = ArrayIn
+    if (GoArray) {
+        ArrayOut = LANIn
+    }
+    GoArray = 1
+}

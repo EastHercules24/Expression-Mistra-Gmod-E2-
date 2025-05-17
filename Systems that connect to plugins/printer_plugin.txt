@@ -1,0 +1,92 @@
+@name Printer System
+@inputs LanIn:array EGPPaper:wirelink LockinPaper:entity
+@outputs Name:string Version:string Maker:string Extra:string
+@persist Array:array NewPos BlackWhiteOnly SpecificPage
+@trigger
+@model models/props/cs_office/computer_caseb_p7a.mdl
+runOnTick(1)
+SystemRegistered = 1
+if (SystemRegistered) {
+    FastMode = 0
+    
+    if (LanIn[2, string] == "Start_Info_Print:") {
+        EGPPaper:egpClear()
+        Array = LanIn:clone()
+        if (LockinPaper != noentity()) {
+            LockinPaper:setAlpha(0)
+            LockinPaper:noCollideAll(1)
+        }
+        if (FastMode) {
+            BlackWhiteOnly = Array[3, string]:toNumber()
+            SpecificPage = Array[4, string]:toNumber()
+            TextSize = Array[5, string]:toNumber()
+            TextFont = Array[6, string]
+            BackgroundColorR = Array[7, string]:toNumber()
+            BackgroundColorG = Array[8, string]:toNumber()
+            BackgroundColorB = Array[9, string]:toNumber()
+            TextColorR = Array[10, string]:toNumber()
+            TextColorG = Array[11, string]:toNumber()
+            TextColorB = Array[12, string]:toNumber()
+            EGPPaper:egpBox(1, vec2(500,500), vec2(1000,1000))
+            if (!BlackWhiteOnly) {
+                EGPPaper:egpColor(1, vec(BackgroundColorR, BackgroundColorG, BackgroundColorB))
+            } else {
+                EGPPaper:egpColor(1, vec(255, 255, 255))
+            }
+            for (I=13, Array:count(), 1) {
+                EGPPaper:egpText(I-6, Array[I, string], vec2(0, NewPos))
+                if (!BlackWhiteOnly) {
+                    EGPPaper:egpColor(I-6, vec(TextColorR, TextColorG, TextColorB))
+                } else {
+                    EGPPaper:egpColor(I-6, vec(0, 0, 0))
+                }
+                EGPPaper:egpFont(I-6, TextFont)
+                NewPos += TextSize
+            }
+            NewPos = 0
+            if (LockinPaper != noentity()) {
+                LockinPaper:setAlpha(255)
+                LockinPaper:noCollideAll(0)
+            }
+        } else {
+            EGPPaper:entity():applyForce(EGPPaper:entity():forward() * 1500)
+            timer("getPaper", 5000)
+        }
+    }
+    if (clk("getPaper")) {
+            BlackWhiteOnly = Array[3, string]:toNumber()
+            SpecificPage = Array[4, string]:toNumber()
+            TextSize = Array[5, string]:toNumber()
+            TextFont = Array[6, string]
+            BackgroundColorR = Array[7, string]:toNumber()
+            BackgroundColorG = Array[8, string]:toNumber()
+            BackgroundColorB = Array[9, string]:toNumber()
+            TextColorR = Array[10, string]:toNumber()
+            TextColorG = Array[11, string]:toNumber()
+            TextColorB = Array[12, string]:toNumber()
+            EGPPaper:egpBox(1, vec2(500,500), vec2(1000,1000))
+            if (!BlackWhiteOnly) {
+                EGPPaper:egpColor(1, vec(BackgroundColorR, BackgroundColorG, BackgroundColorB))
+            } else {
+                EGPPaper:egpColor(1, vec(255, 255, 255))
+            }
+            for (I=13, Array:count(), 1) {
+                EGPPaper:egpText(I-6, Array[I, string], vec2(0, NewPos))
+                if (!BlackWhiteOnly) {
+                    EGPPaper:egpColor(I-6, vec(TextColorR, TextColorG, TextColorB))
+                } else {
+                    EGPPaper:egpColor(I-6, vec(0, 0, 0))
+                }
+                EGPPaper:egpFont(I-6, TextFont)
+                NewPos += TextSize
+            }
+            NewPos = 0
+            if (LockinPaper != noentity()) {
+                LockinPaper:setAlpha(255)
+                LockinPaper:noCollideAll(0)
+            }
+            
+            EGPPaper:entity():applyForce(EGPPaper:entity():forward() * 3000)
+            stoptimer("getPaper")
+    }
+}

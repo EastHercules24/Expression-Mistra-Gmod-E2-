@@ -1,0 +1,169 @@
+@name Dorothy's Tornado Measurement and Informative Device (DTMID)
+@inputs ArrayIn:array SystemRegistered Gps:vector SpeedFromWind Enrity1:entity Enrity2:entity Enrity3:entity Enrity4:entity Enrity5:entity Enrity6:entity Enrity7:entity Enrity8:entity 
+@outputs Name:string Version:string Maker:string Extra:string ActiveLight ArrayOut:array
+@persist ArrayShow:array ProgramWorks ProRun MoveUp SumSpeed HighWindSpeed HighSpeed F:string FC:string F1
+runOnTick(100)
+
+# Information
+Name = "Dorothy's Tornado Measurement and Informative Device (DTMID)"
+Version = "0.5"
+Maker = "Made by HellYeah24"
+Extra = "Make the tornado alley more saver!"
+
+function void display() {
+    ProgramWorks = 1
+    
+    function void render() {
+        if (ArrayShow:count()-MoveUp > 27) {
+            MoveUp = ArrayShow:count()-27
+        }
+        local SizeText = "                        "
+        local Space1 = "##"
+        local Space2 = "##"
+        local Space3 = "##"
+        local Space4 = "##"
+        local Space5 = "##"
+        local Space6 = "##"
+        local Space7 = "##"
+        local Space8 = "##"
+        
+        Space1 = SizeText:sub(0,2)+"#"+SizeText:sub(0,F1+6)+"#"
+        Space2 = SizeText:sub(0,2)+"#"+SizeText:sub(0,F1+6)+"#"
+        Space3 = SizeText:sub(0,3)+"#"+SizeText:sub(0,F1+4)+"#"
+        Space4 = SizeText:sub(0,3)+"#"+SizeText:sub(0,F1+4)+"#"
+        Space5 = SizeText:sub(0,4)+"#"+SizeText:sub(0,F1+2)+"#"
+        Space6 = SizeText:sub(0,4)+"#"+SizeText:sub(0,F1+2)+"#"
+        Space7 = SizeText:sub(0,5)+"#"+SizeText:sub(0,F1)+"#"
+        Space8 = SizeText:sub(0,5)+"#"+SizeText:sub(0,F1)+"#"
+        
+        if (F1 < 10) {
+            Space1 = "~~~~          ~~    ~"
+            Space2 = "~    ~~~~  ~~~  "
+            Space3 = "~~~    ~~  ~~~~ "
+            Space4 = "~~~~~~~     ~~~"
+            Space5 = "~~ ~~~ ~~   I ~~"
+            Space6 = "                      IAA  "
+            Space7 = "                     AAA  "
+            Space8 = "____________|____"
+        }
+
+        ArrayOut = array(
+        "PE(makeProgramWork 1)",
+        "PE(clearScreen)",
+        "PE(print 255 255 255 DTMID V0.5 - Make the tornado alley more saver!)",
+        "PE(print 255 255 255 Press Tab to exit)",
+        "PE(print 255 255 255 ---------------------------------------------------------------------------------------------)",
+        "PE(print 255 255 255 GPS Vector: " + Gps:toString():sub(5,Gps:toString():length()-1) + ")",
+        "PE(print " + FC + " Average Speed: " + SumSpeed + ")",
+        "PE(print 255 255 255 High Speed: " + HighSpeed + ")",
+        "PE(print " + FC + " Prop Wind Speed: " + SpeedFromWind + ")",
+        "PE(print 255 255 255 High Prop Wind Speed: " + HighWindSpeed + ")",
+        "PE(print " + FC + " Est. Tornato Scale: " + F + ")",
+        "PE(print 255 255 255 - Graphic Display: ------------------------------------------------------------------------------------)",
+        "PE(print " + FC + " " + Space1 + ")",
+        "PE(print " + FC + " " + Space2 + ")",
+        "PE(print " + FC + " " + Space3 + ")",
+        "PE(print " + FC + " " + Space4 + ")",
+        "PE(print " + FC + " " + Space5 + ")",
+        "PE(print " + FC + " " + Space6 + ")",
+        "PE(print " + FC + " " + Space7 + ")",
+        "PE(print " + FC + " " + Space8 + ")",
+        "PE(print 255 255 255 -------------------------------------------------------------------------------------------------)"
+        )
+    }
+    function number sumSpeed() {
+        return
+            ((Enrity1:vel():length() +
+             Enrity2:vel():length() +
+             Enrity3:vel():length() +
+             Enrity4:vel():length() +
+             Enrity5:vel():length() +
+             Enrity6:vel():length() +
+             Enrity7:vel():length() +
+             Enrity8:vel():length()) /8) / 10
+    }
+    function void addInfo() {
+        ArrayShow[ArrayShow:count(), string] = "System1: Pos: " + Enrity1:pos():toString() + " | Speed: " + Enrity1:vel():length() / 10 + " | Ang: " Enrity1:angles():toString()
+        ArrayShow[ArrayShow:count()+1, string] = "System2: Pos: " + Enrity2:pos():toString() + " | Speed: " + Enrity2:vel():length() / 10 + " | Ang: " Enrity2:angles():toString()
+        ArrayShow[ArrayShow:count()+2, string] = "System3: Pos: " + Enrity3:pos():toString() + " | Speed: " + Enrity3:vel():length() / 10 + " | Ang: " Enrity3:angles():toString()
+        ArrayShow[ArrayShow:count()+3, string] = "System4: Pos: " + Enrity4:pos():toString() + " | Speed: " + Enrity4:vel():length() / 10 + " | Ang: " Enrity4:angles():toString()
+        ArrayShow[ArrayShow:count()+4, string] = "System5: Pos: " + Enrity5:pos():toString() + " | Speed: " + Enrity5:vel():length() / 10 + " | Ang: " Enrity5:angles():toString()
+        ArrayShow[ArrayShow:count()+5, string] = "System6: Pos: " + Enrity6:pos():toString() + " | Speed: " + Enrity6:vel():length() / 10 + " | Ang: " Enrity6:angles():toString()
+        ArrayShow[ArrayShow:count()+6, string] = "System7: Pos: " + Enrity7:pos():toString() + " | Speed: " + Enrity7:vel():length() / 10 + " | Ang: " Enrity7:angles():toString()
+        ArrayShow[ArrayShow:count()+7, string] = "System8: Pos: " + Enrity8:pos():toString() + " | Speed: " + Enrity8:vel():length() / 10 + " | Ang: " Enrity8:angles():toString()
+        SumSpeed = sumSpeed()
+        if (SpeedFromWind> HighWindSpeed) {
+            HighWindSpeed = SpeedFromWind
+        }
+        if (SumSpeed > HighSpeed) {
+            HighSpeed = SumSpeed
+        }
+        if (SumSpeed < 10) {
+            F = "No Tornado Detected/Slight Wind"
+            FC = "100 100 100"
+            F1 = 0
+        } elseif (SumSpeed < 73) {
+            F = "F0"
+            FC = "255 255 255"
+            F1 = 1
+        } elseif (SumSpeed > 73 && SumSpeed < 112) {
+            F = "F1"
+            FC = "0 255 0"
+            F1 = 3
+        } elseif (SumSpeed > 113 && SumSpeed < 157) {
+            F = "F2"
+            FC = "255 255 0"
+            F1 = 5
+        } elseif (SumSpeed > 158 && SumSpeed < 206) {
+            F = "F3"
+            FC = "255 150 0"
+            F1 = 8
+        } elseif (SumSpeed > 207 && SumSpeed < 260) {
+            F = "F4"
+            FC = "255 0 0"
+            F1 = 13
+        } elseif (SumSpeed > 261) {
+            F = "F5"
+            FC = "255 0 255"
+            F1 = 18
+        }
+    }
+    
+    addInfo()
+    render()
+    
+    event keyPressed(Player:entity, Key:string, Down:number, KeyBind:string) {
+        if (ProgramWorks && Player == owner()) {
+            if (Key == "tab") {
+                ArrayOut = array(
+                "PE(clearScreen)",
+                "PE(print 255 0 0 Exiting Dtmid...)",
+                "PE(print 255 255 255  )",
+                "PE(makeProgramWork 0)"
+                )
+                ProRun = 0
+                ProgramWorks = 0
+                exit()
+            }
+        }
+    }
+}
+
+if (SystemRegistered) {
+    if (!ProgramWorks) {
+        ArrayOut = array(
+        "PE(editprint 1 255 255 255  )",
+        "PE(print 255 255 0 Dorothy's Tornado Measurement and Informative Device [DTMID] is ready!)",
+        "PE(print 255 255 0 Type 'dtmid' to run the program.)",
+        "PE(print 255 255 255  )",
+        "PCC(AddProgram dtmid Start)"
+        )
+    }
+    if (ProRun) {
+       display() 
+    }
+    ActiveLight = 1
+    if (ArrayIn[1,string] == "Start") {
+        ProRun = 1
+    }
+}

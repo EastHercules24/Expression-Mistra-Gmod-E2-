@@ -1,0 +1,2261 @@
+@name Expression Mistra (Alpha 3)
+@inputs KeyboardEntity:entity Keyboard:string UserEntity:entity HDD:entity HDDRead:array USB:entity USBRead:array CD:entity CDRead:array # Input/read
+@inputs EGP:wirelink PluginSlot1:wirelink PluginSlot2:wirelink PluginSlot3:wirelink PluginSlot4:wirelink PluginSlot5:wirelink # Wirelink
+@outputs ResetKeyboard HDDWrite:array USBWrite:array CDWrite:array PluginSlotIn1:array PluginSlotIn2:array PluginSlotIn3:array PluginSlotIn4:array PluginSlotIn5:array # Write
+@outputs DisplayTableOut:array GraphicDisTableOut:array PluginTableOut:array # Memmory Out
+@persist Playerusing:entity ScreenPosVer ScreenPosHor NextLineY NextLine HowManyLines UserState WaitForCommand WaitForLoop ChangeScrollMode MistraPanic MediumChoice Debug Getmemory UserN:string UsePass:string KeysTyped:string # System
+@persist FileSystem:array CurrentDirectory:string # File system
+@persist ReadArray:array WriteArray:array CurrentMedium:number ProgramLinkPlugin:array # Arrays
+@persist CpuTimeLimit Cpu # Bluescreen
+@persist ProgramRunningUsingKeyboard WhatProgram:string WhatArgs:string # Program detect
+@persist DisplayTable:array GraphicsDisTable:array User:array PluginTable:array VarSavePE:table CustomCode:array Arrtest1:array Arrtest2:array Arrtest3:array Arrtest4:array Arrtest5:array HowMany1 HowMany2 HowMany3 HowMany4 HowMany5 # Memmory 
+
+# For texter
+@persist IsShiftPressed:number
+@persist TextLines:array
+@persist IsrRaltlcontrolPressed:number
+@persist FileName:string
+@persist CursorPos:number
+@persist CursorPosX:number
+@persist IsInEditMode:number
+@persist KeyPress:string
+@persist Mode:number
+@persist CommandInput:string
+@persist Page:number
+@persist Pages:number
+@persist PagesNumberAdd:number
+@persist IsItRunning 
+
+@trigger
+@model models/props/cs_office/computer_caseb_p7a.mdl
+#@model models/props/cs_office/computer_caseb.mdl
+
+if (Getmemory) {
+    DisplayTableOut = DisplayTable
+    PluginTableOut = PluginTable
+    GraphicDisTableOut = GraphicsDisTable
+} else {
+    DisplayTableOut = array()
+    PluginTableOut = array()
+    GraphicDisTableOut = array()
+}
+
+Cpu = cpuUsage() * 1000000 # Cpu time
+
+if (UserEntity == noentity()) {
+    Playerusing = noentity()
+} else {
+    Playerusing = UserEntity
+}
+
+ScreenPosHor = 512 # Screen size (DO NOT TOUCH)
+ScreenPosVer = 512 # Screen size (DO NOT TOUCH)
+CpuTimeLimit = 9900 # Cpu time limit untill bluescreen
+
+PluginSlotIn1 = array()
+PluginSlotIn2 = array()
+PluginSlotIn3 = array()
+PluginSlotIn4 = array()
+PluginSlotIn5 = array()
+
+#interval(100) # Lower frequency
+runOnKeys(Playerusing, 1) # Much better for running
+
+function void updateScreen() {
+    if (!EGP) { return }
+    EGP:egpClear()
+    for (I = 1, DisplayTable:count(), 3) {
+        Text = DisplayTable[I, string]
+        Color = DisplayTable[I+1, vector]
+        Position = DisplayTable[I+2, vector2]
+        if (Text:length() > 0) {
+            EGP:egpText(I, Text, Position)
+            EGP:egpColor(I, Color)
+            EGP:egpSize(I, 16)
+        }
+    }
+}
+
+# Text
+function void addTextToTable(Text:string, Color:vector) {
+    # Add new text at the bottom
+    DisplayTable[NextLine, string] = Text 
+    DisplayTable[NextLine+1, vector] = Color
+    DisplayTable[NextLine+2, vector2] = vec2(0, NextLineY)
+    NextLine += 3
+    NextLineY += 15
+    
+    if (HowManyLines >= 34 && !ChangeScrollMode) {
+        # Shift all lines up by 3 indices
+        for (I = 1, DisplayTable:count(), 3) { 
+            DisplayTable[I, string] = DisplayTable[I+3, string] #+ " " + DisplayTable:count():toString()
+            DisplayTable[I+1, vector] = DisplayTable[I+4, vector]
+            DisplayTable[I+2, vector2] = DisplayTable[I+5, vector2]-vec2(0,15)
+        }
+
+        # Remove last line (ensuring it's empty)
+        DisplayTable[NextLine-3, string] = ""
+        DisplayTable[NextLine-2, vector] = vec(0, 0, 0)
+        DisplayTable[NextLine-1, vector2] = vec2(0, 0)
+
+        NextLineY -= 15
+        NextLine -= 3
+        #HowManyLines -= 1
+    } elseif (HowManyLines >= 34 && ChangeScrollMode) {
+        for (I = 1, DisplayTable:count(), 3) {
+            DisplayTable[I, string] = ""
+            DisplayTable[I+1, vector] = vec(0, 0, 0)
+            DisplayTable[I+2, vector2] = vec2(0, 0)
+        }
+        NextLineY = 0
+        HowManyLines = 0
+        NextLine = 1
+    } else {
+        HowManyLines += 1
+    }
+}
+
+function void editTextToTable(Table:number, Text:string, Color:vector) {
+    Table2 = 1 + (Table * 3)
+    DisplayTable[Table2, string] = Text
+    DisplayTable[Table2+1, vector] = Color
+    DisplayTable[Table2+2, vector2] = DisplayTable[Table2+2, vector2]
+}
+
+function void removeTextToTable(Table:number) {
+    Table2 = 1 + (Table * 3)
+    DisplayTable[Table2, string] = ""
+    DisplayTable[Table2+1, vector] = vec(0, 0, 0)
+    DisplayTable[Table2+2, vector2] = vec2(0, 0)
+    NextLine -= 3
+    HowManyLines = HowManyLines - 1
+    NextLineY -= 15
+}
+
+# Graphics
+
+function void addGraphicsToTable(Text:string, Color:vector, Size:vector2, Argu1:vector2, Argu2:vector2) {
+    # Add new text at the bottom
+    GraphicsDisTable[GraphicsDisTable:count()+1, string] = Text 
+    GraphicsDisTable[GraphicsDisTable:count()+1, vector] = Color
+    GraphicsDisTable[GraphicsDisTable:count()+1, vector2] = Size
+    GraphicsDisTable[GraphicsDisTable:count()+1, vector2] = Argu1
+    GraphicsDisTable[GraphicsDisTable:count()+1, vector2] = Argu2
+}
+
+function void editGraphicsToTable(Table:number, Text:string, Color:vector, Size:vector2, Argu1:vector2, Argu2:vector2) {
+    Table2 = 1 + (Table * 5)
+    GraphicsDisTable[Table2, string] = Text 
+    GraphicsDisTable[Table2+1, vector] = Color
+    GraphicsDisTable[Table2+2, vector2] = Size
+    GraphicsDisTable[Table2+3, vector2] = Argu1
+    GraphicsDisTable[Table2+4, vector2] = Argu2
+}
+
+function void removeGraphicsToTable(Table:number) {
+    Table2 = 1 + (Table * 5)
+    GraphicsDisTable[Table2, string] = ""
+    GraphicsDisTable[Table2+1, vector] = vec()
+    GraphicsDisTable[Table2+2, vector2] = vec2()
+    GraphicsDisTable[Table2+3, vector2] = vec2()
+    GraphicsDisTable[Table2+4, vector2] = vec2()
+}
+
+# Error Functions
+function void displayError(Text:string, Type:number) {
+    if (Type == 0) {
+        addTextToTable("[Info]: " + Text, vec(255, 255, 255))
+    } elseif (Type == 1) {
+        addTextToTable("[Warning]: " + Text, vec(255, 255, 0))
+    } elseif (Type == 2) {
+        addTextToTable("[Error]: " + Text, vec(255, 0, 0))
+    }
+}
+
+# Clear Functions
+function void clearScreen() {
+    EGP:egpClear()
+}
+
+function void clearDisplayTable() {
+    DisplayTable = array()
+    NextLineY = 0
+    HowManyLines = 0
+    NextLine = 1
+}
+
+function void clearGraphicTable() {
+    GraphicsDisTable = array()
+}
+
+function void clearUserTable() {
+    User[1, number] = 0 # User set up?
+    User[2, number] = 0 # User logged in?
+    User[3, string] = "" # User's username in?
+    User[4, string] = "" # User's password in?
+}
+
+function void clearKeyboard() {
+    if(!ResetKeyboard) {ResetKeyboard = 1}
+    if(ResetKeyboard) {ResetKeyboard = 0}
+    KeysTyped = ""
+}
+
+# User Functions
+function void createUserTable(Set:number, Logged:number, Usern:string, Pass:string) {
+    User[1, number] = Set # User set up?
+    User[2, number] = Logged # User logged in?
+    User[3, string] = Usern # User's username in?
+    User[4, string] = Pass # User's password in?
+}
+
+function number detectUser() {
+    return User[1, number]
+}
+
+function number detectUserPass() {
+    return User[2, number]
+}
+
+function void grandUserFunctions() {
+    clearKeyboard()
+    addTextToTable("["+User[3, string]+"]["+CurrentDirectory+"]#: ", vec(255, 255, 255))
+}
+
+# Shutdown function
+function void shutdown() {
+    clearDisplayTable()
+    addTextToTable("Shuting down... Goodbye " + User[3, string], vec(255, 0, 0))
+    Playerusing = noentity()
+    reset()
+}
+
+# Bluescreen Function
+
+function void bluescreenInit(Type:string, Code) {
+    clearDisplayTable()
+    addTextToTable("--------------------------------------------------------------------------------------",vec(255,255,0))
+    addTextToTable(":( Oh noes!!!1",vec(255,255,0))
+    addTextToTable("Your system ran into a problem and it couldn't handle it...",vec(255,255,0))
+    addTextToTable("Type: " + Type,vec(255,255,0))
+    addTextToTable("Code: " + Code:toString(),vec(255,255,0))
+    addTextToTable("--------------------------------------------------------------------------------------",vec(255,255,0))
+    #hint("System Crashed! Type: " + Type + " Code: " + Code)
+    error("System Crashed! Type: " + Type + " Code: " + Code)
+}
+
+if (Cpu >= CpuTimeLimit) {
+    bluescreenInit("System overloaded", 001)
+}
+
+# Other Functions
+
+# Hardcoded Programs
+# Hardware Detection Program (HDP)
+function void testHardware() {
+    for (I = 1, 8) { 
+        if (I == 1) {
+            addTextToTable("-- Hardware detection ----------", vec(255, 255, 255))
+        }
+        if (I == 2) {
+            addTextToTable("[Test] Mainboard Screen Plug: ...", vec(255, 255, 255))
+            if (EGP == nowirelink()){
+                editTextToTable(HowManyLines-1, "[Test] Mainboard Screen Plug: ... Not pluged in!", vec(255, 255, 0))
+            }else{
+                editTextToTable(HowManyLines-1, "[Test] Mainboard Screen Plug: ... Detected", vec(0, 255, 0))
+            }
+        }
+        if (I == 3) {
+            addTextToTable("[Test] Keyboard: ...", vec(255, 255, 255))
+            if (KeyboardEntity == noentity()){
+                editTextToTable(HowManyLines-1, "[Test] Keyboard: ... Not pluged in!", vec(255, 255, 0))
+            }else{
+                editTextToTable(HowManyLines-1, "[Test] Keyboard: ... Detected", vec(0, 255, 0))
+            }
+        }
+        if (I == 3) {
+            addTextToTable("[Test] HDD: ...", vec(255, 255, 255))
+            if (HDD == noentity()){
+                editTextToTable(HowManyLines-1, "[Test] HDD: ... Not detected", vec(255, 0, 0))
+            }else{
+                editTextToTable(HowManyLines-1, "[Test] HDD: ... Detected", vec(0, 255, 0))
+            }
+        }
+        if (I == 4) {
+            addTextToTable("[Test] External USB: ...", vec(255, 255, 255))
+            if (USB == noentity()){
+                editTextToTable(HowManyLines-1, "[Test] External USB: ... Not detected", vec(255, 255, 0))
+            }else{
+                editTextToTable(HowManyLines-1, "[Test] External USB: ... Detected", vec(0, 255, 0))
+            }
+        }
+        if (I == 5) {
+            addTextToTable("[Test] CD Drive: ...", vec(255, 255, 255))
+            if (CD == noentity()){
+                editTextToTable(HowManyLines-1, "[Test] CD: ... Not detected", vec(255, 255, 0))
+            }else{
+                editTextToTable(HowManyLines-1, "[Test] CD: ... Detected", vec(0, 255, 0))
+            }
+        }
+        if (I == 6) {
+            if (HDD == noentity() && USB == noentity() && CD == noentity()){
+                addTextToTable("** WARNING! ** No medium found! This can limit the functionality of the os", vec(255, 0, 0))
+                addTextToTable("because you can't read/write or load to any medium. But hardcoded functions", vec(255, 0, 0))
+                addTextToTable("will work.", vec(255, 0, 0))
+            }
+        }
+        if (I == 7) {
+            addTextToTable("Write 'plugindetect' to check for plugins.", vec(255, 255, 255))
+        }
+        if (I == 8) {
+            addTextToTable("-----------------------------------", vec(255, 255, 255))
+        }
+    }
+}
+
+# Change Scroll type (CSP)
+function void csp() {
+    if (!ChangeScrollMode) {
+        ChangeScrollMode = 1
+        addTextToTable("Changed to 'Instant Clear Scroll Mode'", vec(255, 255, 255))
+    } else {
+        ChangeScrollMode = 0
+        addTextToTable("Changed to 'Scroll Mode'", vec(255, 255, 255))
+    }
+}
+
+# Clock Program
+function void clock() {
+    GTM = 2
+    Hours = time("hour") + GTM
+    Minutes = time("min")
+    Seconds = time("sec")
+    # Display on screen or console
+    addTextToTable("Your current time is: " + Hours:toString() + ":" + Minutes:toString() + ":" + Seconds:toString() + " with GTM " + GTM, vec(255, 255, 255))
+}
+
+# Plugin Checker
+function void pluginDetect() {
+    for (I = 1, 6) { 
+        if (I == 1) {
+            addTextToTable("-- Plugin detection ---------------", vec(255, 255, 255))
+        }
+        if (I == 2) {
+            addTextToTable("[Test] Slot 1: ...", vec(255, 255, 255))
+            if (PluginTable[0, string] == PluginSlot1["Name", string]) {
+                if (PluginTable[0, string] == "") {
+                    editTextToTable(HowManyLines-1, "[Test] Slot 1: None", vec(255, 255, 0))
+                }else{
+                    editTextToTable(HowManyLines-1, "[Test] Slot 1: Connected", vec(0, 255, 0))
+                    addTextToTable("| Name: "+PluginSlot1["Name", string], vec(0, 255, 0))
+                    addTextToTable("| Version: "+PluginSlot1["Version", string], vec(0, 255, 0))
+                    addTextToTable("| Maker: "+PluginSlot1["Maker", string], vec(0, 255, 0))
+                    addTextToTable("| Extra: "+PluginSlot1["Extra", string], vec(0, 255, 0))
+                    addTextToTable("| Status: "+PluginTable[4, string], vec(0, 255, 0))
+                }
+            }else{
+                editTextToTable(HowManyLines-1, "[Test] Slot 1: None", vec(255, 255, 0))
+            }
+        }
+        if (I == 3) {
+            addTextToTable("[Test] Slot 2: ...", vec(255, 255, 255))
+            if (PluginTable[5, string] == PluginSlot2["Name", string]) {
+                if (PluginTable[5, string] == "") {
+                    editTextToTable(HowManyLines-1, "[Test] Slot 2: None", vec(255, 255, 0))
+                }else{
+                    editTextToTable(HowManyLines-1, "[Test] Slot 2: Connected", vec(0, 255, 0))
+                    addTextToTable("| Name: "+PluginSlot2["Name", string], vec(0, 255, 0))
+                    addTextToTable("| Version: "+PluginSlot2["Version", string], vec(0, 255, 0))
+                    addTextToTable("| Maker: "+PluginSlot2["Maker", string], vec(0, 255, 0))
+                    addTextToTable("| Extra: "+PluginSlot2["Extra", string], vec(0, 255, 0))
+                    addTextToTable("| Status: "+PluginTable[9, string], vec(0, 255, 0))
+                }
+            }else{
+                editTextToTable(HowManyLines-1, "[Test] Slot 2: None", vec(255, 255, 0))
+            }
+        }
+        if (I == 3) {
+            addTextToTable("[Test] Slot 3: ...", vec(255, 255, 255))
+            if (PluginTable[10, string] == PluginSlot3["Name", string]) {
+                if (PluginTable[10, string] == "") {
+                    editTextToTable(HowManyLines-1, "[Test] Slot 3: None", vec(255, 255, 0))
+                }else{
+                    editTextToTable(HowManyLines-1, "[Test] Slot 3: Connected", vec(0, 255, 0))
+                    addTextToTable("| Name: "+PluginSlot3["Name", string], vec(0, 255, 0))
+                    addTextToTable("| Version: "+PluginSlot3["Version", string], vec(0, 255, 0))
+                    addTextToTable("| Maker: "+PluginSlot3["Maker", string], vec(0, 255, 0))
+                    addTextToTable("| Extra: "+PluginSlot3["Extra", string], vec(0, 255, 0))
+                    addTextToTable("| Status: "+PluginTable[14, string], vec(0, 255, 0))
+                }
+            }else{
+                editTextToTable(HowManyLines-1, "[Test] Slot 3: None", vec(255, 255, 0))
+            }
+        }
+        if (I == 4) {
+            addTextToTable("[Test] Slot 4: ...", vec(255, 255, 255))
+            if (PluginTable[15, string] == PluginSlot4["Name", string]) {
+                if (PluginTable[15, string] == "") {
+                    editTextToTable(HowManyLines-1, "[Test] Slot 4: None", vec(255, 255, 0))
+                }else{
+                    editTextToTable(HowManyLines-1, "[Test] Slot 4: Connected", vec(0, 255, 0))
+                    addTextToTable("| Name: "+PluginSlot4["Name", string], vec(0, 255, 0))
+                    addTextToTable("| Version: "+PluginSlot4["Version", string], vec(0, 255, 0))
+                    addTextToTable("| Maker: "+PluginSlot4["Maker", string], vec(0, 255, 0))
+                    addTextToTable("| Extra: "+PluginSlot4["Extra", string], vec(0, 255, 0))
+                    addTextToTable("| Status: "+PluginTable[19, string], vec(0, 255, 0))
+                }
+            }else{
+                editTextToTable(HowManyLines-1, "[Test] Slot 4: None", vec(255, 255, 0))
+            }
+        }
+        if (I == 5) {
+            addTextToTable("[Test] Slot 5: ...", vec(255, 255, 255))
+            if (PluginTable[20, string] == PluginSlot5["Name", string]) {
+                if (PluginTable[20, string] == "") {
+                    editTextToTable(HowManyLines-1, "[Test] Slot 5: None", vec(255, 255, 0))
+                }else{
+                    editTextToTable(HowManyLines-1, "[Test] Slot 5: Connected", vec(0, 255, 0))
+                    addTextToTable("| Name: "+PluginSlot5["Name", string], vec(0, 255, 0))
+                    addTextToTable("| Version: "+PluginSlot5["Version", string], vec(0, 255, 0))
+                    addTextToTable("| Maker: "+PluginSlot5["Maker", string], vec(0, 255, 0))
+                    addTextToTable("| Extra: "+PluginSlot5["Extra", string], vec(0, 255, 0))
+                    addTextToTable("| Status: "+PluginTable[24, string], vec(0, 255, 0))
+                }
+            }else{
+                editTextToTable(HowManyLines-1, "[Test] Slot 5: None", vec(255, 255, 0))
+            }
+        }
+        if (I == 6) {
+            addTextToTable("-----------------------------------", vec(255, 255, 255))
+        }
+    }
+}
+
+function void readFromMedium(Medium:number) {
+    local Data = ""
+    
+    if (Medium == 1) {  # HDD
+        if (HDD:isValid()) {
+            for (I = 1, HDDRead:count()) {  # Loop starts from 1, going up to count
+                Data = HDDRead[I, string]
+                if (Data != "") {
+                    if (Debug) {
+                        addTextToTable("Read from HDD: " + Data, vec(0, 255, 0))
+                    }
+                } else {
+                    displayError("No data found on HDD!", 2)
+                }
+            }
+        } else {
+            displayError("HDD is not detected!", 2)
+        }
+    } elseif (Medium == 2) {  # USB
+        if (USB:isValid()) {
+            for (I = 1, USBRead:count()) {  # Loop starts from 1, going up to count
+                Data = USBRead[I, string]
+                if (Data != "") {
+                    if (Debug) {
+                        addTextToTable("Read from USB: " + Data, vec(0, 255, 0))
+                    }
+                } else {
+                    displayError("No data found on USB!", 2)
+                }
+            }
+        } else {
+            displayError("USB is not detected!", 2)
+        }
+    } elseif (Medium == 3) {  # CD
+        if (CD:isValid()) {
+            for (I = 1, CDRead:count()) {  # Loop starts from 1, going up to count
+                Data = CDRead[I, string]
+                if (Data != "") {
+                    if (Debug) {
+                        addTextToTable("Read from CD: " + Data, vec(0, 255, 0))
+                    }
+                } else {
+                    displayError("No data found on CD!", 2)
+                }
+            }
+        } else {
+            displayError("CD Drive is not detected!", 2)
+        }
+    } else {
+        displayError("No medium error", 2)
+    }
+}
+
+function void writeToMedium(Medium:number, Content:string) {
+    if (Medium == 1) {  # HDD
+        if (HDD:isValid()) {
+            HDDWrite = HDDRead
+            HDDWrite[HDDRead:count() + 1, string] = Content  # Adds at the next available index
+            if (Debug) {
+                addTextToTable("Written to HDD: " + Content + " Count: " + HDDRead:count(), vec(0, 255, 0))
+            }
+        } else {
+            displayError("HDD is not detected!", 2)
+        }
+    } elseif (Medium == 2) {  # USB
+        if (USB:isValid()) {
+            USBWrite = USBRead
+            USBWrite[USBRead:count() + 1, string] = Content  # Adds at the next available index
+            if (Debug) {
+                addTextToTable("Written to USB: " + Content + " Count: " + USBRead:count(), vec(0, 255, 0))
+            }
+        } else {
+            displayError("USB is not detected!", 2)
+        }
+    } elseif (Medium == 3) {  # CD
+        if (CD:isValid()) {
+            CDWrite = CDRead
+            CDWrite[CDRead:count() + 1, string] = Content  # Adds at the next available index
+            if (Debug) {
+                addTextToTable("Written to CD: " + Content + " Count: " + CDRead:count(), vec(0, 255, 0))
+            }
+        } else {
+            displayError("CD Drive is not detected!", 2)
+        }
+    }
+}
+
+function void createDirectory(DirName:string) {
+    #writeToMedium(1, "DIR//" + CurrentDirectory)
+    writeToMedium(MediumChoice, "DIR//" + CurrentDirectory + DirName)
+    displayError("Directory '" + DirName + "' created in medium " + MediumChoice + ".", 0)
+}
+
+function void createFile(FileName:string) {
+    writeToMedium(MediumChoice, "FILE//" + CurrentDirectory + FileName)
+    displayError("File '" + FileName + "' created.", 0)
+}
+
+function void listDirectory() {
+    if (MediumChoice == 1) {
+        addTextToTable("Contents of '" + CurrentDirectory + "':", vec(255, 255, 255))
+        local Found = 0
+        for (I = 1, HDDRead:count()) {
+            local Entry = HDDRead[I, string]
+            if (Entry:sub(1, CurrentDirectory:length()+5) == "DIR//" + CurrentDirectory) {
+                local Slash = Entry:explode("/")
+                if (Entry == "DIR//" + CurrentDirectory + Slash[Slash:count(), string]) {
+                    addTextToTable("DIR: "+Entry:sub(5+CurrentDirectory:length(), Entry:length()), vec(0, 255, 0))
+                }
+                #addTextToTable("DIR: "+Entry:sub(5+CurrentDirectory:length(), Entry:length()), vec(0, 255, 0))
+                Found = 1
+            }
+            if (Entry:sub(1, CurrentDirectory:length()+6) == "FILE//" + CurrentDirectory) {
+                local Text = Entry:sub(6+CurrentDirectory:length(), Entry:length())
+                local List = Text:explode("::")
+                local Slash2 = List[1,string]:explode("/")
+                if ("FILE//" + CurrentDirectory + Slash2[Slash2:count(), string]) {
+                    addTextToTable("FILE: "+List[1,string], vec(0, 255, 0))
+                }
+                Found = 1
+            }
+        }
+        if (Found == 0) {
+            addTextToTable("[Empty Directory]", vec(255, 255, 255))
+        }
+    } elseif (MediumChoice == 2) {
+        addTextToTable("Contents of '" + CurrentDirectory + "':", vec(255, 255, 255))
+        local Found = 0
+        for (I = 1, USBRead:count()) {
+            local Entry = USBRead[I, string]
+                        if (Entry:sub(1, CurrentDirectory:length()+5) == "DIR//" + CurrentDirectory) {
+                local Slash = Entry:explode("/")
+                if (Entry == "DIR//" + CurrentDirectory + Slash[Slash:count(), string]) {
+                    addTextToTable("DIR: "+Entry:sub(5+CurrentDirectory:length(), Entry:length()), vec(0, 255, 0))
+                }
+                #addTextToTable("DIR: "+Entry:sub(5+CurrentDirectory:length(), Entry:length()), vec(0, 255, 0))
+                Found = 1
+            }
+            if (Entry:sub(1, CurrentDirectory:length()+6) == "FILE//" + CurrentDirectory) {
+                local Text = Entry:sub(6+CurrentDirectory:length(), Entry:length())
+                local List = Text:explode("::")
+                local Slash2 = List[1,string]:explode("/")
+                if ("FILE//" + CurrentDirectory + Slash2[Slash2:count(), string]) {
+                    addTextToTable("FILE: "+List[1,string], vec(0, 255, 0))
+                }
+                Found = 1
+            }
+        }
+        if (Found == 0) {
+            addTextToTable("[Empty Directory]", vec(255, 255, 255))
+        }
+    } elseif (MediumChoice == 3) {
+        addTextToTable("Contents of '" + CurrentDirectory + "':", vec(255, 255, 255))
+        local Found = 0
+        for (I = 1, CDRead:count()) {
+            local Entry = CDRead[I, string]
+                        if (Entry:sub(1, CurrentDirectory:length()+5) == "DIR//" + CurrentDirectory) {
+                local Slash = Entry:explode("/")
+                if (Entry == "DIR//" + CurrentDirectory + Slash[Slash:count(), string]) {
+                    addTextToTable("DIR: "+Entry:sub(5+CurrentDirectory:length(), Entry:length()), vec(0, 255, 0))
+                }
+                #addTextToTable("DIR: "+Entry:sub(5+CurrentDirectory:length(), Entry:length()), vec(0, 255, 0))
+                Found = 1
+            }
+            if (Entry:sub(1, CurrentDirectory:length()+6) == "FILE//" + CurrentDirectory) {
+                local Text = Entry:sub(6+CurrentDirectory:length(), Entry:length())
+                local List = Text:explode("::")
+                local Slash2 = List[1,string]:explode("/")
+                if ("FILE//" + CurrentDirectory + Slash2[Slash2:count(), string]) {
+                    addTextToTable("FILE: "+List[1,string], vec(0, 255, 0))
+                }
+                Found = 1
+            }
+        }
+        if (Found == 0) {
+            addTextToTable("[Empty Directory]", vec(255, 255, 255))
+        }
+    }
+}
+
+function void changeDirectory(DirectoryName:string) {
+    if (DirectoryName == "..") {
+        if (CurrentDirectory != "") {
+            local Split = CurrentDirectory:explode("/")
+            local WhatToSay = ""
+            Split:remove(Split:count())  # Properly remove the last entry (which might be empty)
+            
+            for (I = 1, Split:count() - 1) {
+                if (Split[I, string] != "") {
+                    WhatToSay = WhatToSay + Split[I, string] + "/"
+                }
+            }
+            CurrentDirectory = WhatToSay
+            addTextToTable("Moved to parent directory: '" + CurrentDirectory + "'", vec(0, 255, 0))
+        } else {
+            displayError("Already at the root directory!", 2)
+        }
+        return
+    } elseif (DirectoryName == "HDD") {
+        MediumChoice = 1
+        CurrentDirectory = "Sys/HDD/"
+        addTextToTable("Moved to Medium: HDD", vec(0, 255, 0))
+        return
+    } elseif (DirectoryName == "USB") {
+        MediumChoice = 2
+        CurrentDirectory = "Sys/USB/"
+        addTextToTable("Moved to Medium: USB", vec(0, 255, 0))
+        return
+    } elseif (DirectoryName == "CD") {
+        MediumChoice = 3
+        CurrentDirectory = "Sys/CD/"
+        addTextToTable("Moved to Medium: CD", vec(0, 255, 0))
+        return
+    } 
+    
+    if (MediumChoice == 1) {
+        for (I = 1, HDDRead:count()) {
+            local Entry = HDDRead[I, string]
+            if (Entry == "DIR//" + CurrentDirectory + DirectoryName ) {
+                CurrentDirectory = CurrentDirectory + DirectoryName + "/"
+                addTextToTable("Changed directory to '" + CurrentDirectory + "'", vec(0, 255, 0))
+                return
+            }
+            if (Entry == "DIR//" + DirectoryName ) {
+                CurrentDirectory = DirectoryName + "/"
+                addTextToTable("Changed directory to '" + CurrentDirectory + "'", vec(0, 255, 0))
+                return
+            }
+        }
+    } elseif (MediumChoice == 2) {
+        for (I = 1, USBRead:count()) {
+            local Entry = USBRead[I, string]
+            if (Entry == "DIR//" + CurrentDirectory + DirectoryName ) {
+                CurrentDirectory = CurrentDirectory + DirectoryName + "/"
+                addTextToTable("Changed directory to '" + CurrentDirectory + "'", vec(0, 255, 0))
+                return
+            }
+            if (Entry == "DIR//" + DirectoryName ) {
+                CurrentDirectory = DirectoryName + "/"
+                addTextToTable("Changed directory to '" + CurrentDirectory + "'", vec(0, 255, 0))
+                return
+            }
+        }
+    } elseif (MediumChoice == 3) {
+        for (I = 1, CDRead:count()) {
+            local Entry = CDRead[I, string]
+            if (Entry == "DIR//" + CurrentDirectory + DirectoryName ) {
+                CurrentDirectory = CurrentDirectory + DirectoryName + "/"
+                addTextToTable("Changed directory to '" + CurrentDirectory + "'", vec(0, 255, 0))
+                return
+            }
+            if (Entry == "DIR//" + DirectoryName ) {
+                CurrentDirectory = DirectoryName + "/"
+                addTextToTable("Changed directory to '" + CurrentDirectory + "'", vec(0, 255, 0))
+                return
+            }
+        }
+    }
+    displayError("Directory not found!", 2)
+}
+
+function void removeItem(Item:string) {
+    if (MediumChoice == 1) {
+        for (I = 1, HDDRead:count()) {
+            local Entry = HDDRead[I, string]
+            if (Entry == "DIR//" + CurrentDirectory + Item || Entry == "FILE//" + CurrentDirectory + Item || Entry:sub(1, 8 + CurrentDirectory:length() + Item:length()) == "FILE//" + CurrentDirectory + Item + "::") {
+                HDDWrite[I, string] = ""
+                displayError("'" + Item + "' removed.", 0)
+                return
+            }
+        }
+    } elseif (MediumChoice == 2) {
+        for (I = 1, USBRead:count()) {
+            local Entry = USBRead[I, string]
+            if (Entry == "DIR//" + CurrentDirectory + Item || Entry == "FILE//" + CurrentDirectory + Item || Entry:sub(1, 8 + CurrentDirectory:length() + Item:length()) == "FILE//" + CurrentDirectory + Item + "::") {
+                USBWrite[I, string] = ""
+                displayError("'" + Item + "' removed.", 0)
+                return
+            }
+        }
+    } elseif (MediumChoice == 3) {
+        for (I = 1, CDRead:count()) {
+            local Entry = CDRead[I, string]
+            if (Entry == "DIR//" + CurrentDirectory + Item || Entry == "FILE//" + CurrentDirectory + Item || Entry:sub(1, 8 + CurrentDirectory:length() + Item:length()) == "FILE//" + CurrentDirectory + Item + "::") {
+                CDWrite[I, string] = ""
+                displayError("'" + Item + "' removed.", 0)
+                return
+            }
+        }
+    }
+    displayError("Item not found!", 2)
+}
+
+function void cpuTime() {
+    addTextToTable("Your cpu usage is: "+Cpu:toString(), vec(255, 255, 255))
+}
+
+function void help() {
+    for (I = 1, 18) { 
+        if (I == 1) {
+            addTextToTable("You wrote 'help'. Here this should help:", vec(255, 255, 255))
+        }
+        if (I == 2) {
+            addTextToTable("'harddetect': Detects and checks Hardware", vec(255, 255, 255))
+        }
+        if (I == 3) {
+            addTextToTable("'clk': Displays the time", vec(255, 255, 255))
+        }
+        if (I == 3) {
+            addTextToTable("'echo <Text>': Echoes the text", vec(255, 255, 255))
+        }
+        if (I == 4) {
+            addTextToTable("'reset': Resets the system", vec(255, 255, 255))
+        }
+        if (I == 5) {
+            #addTextToTable("'shutdown': Shuts down the system", vec(255, 255, 255))
+        }
+        if (I == 6) {
+            addTextToTable("'mkdir <Name>': Makes a directory", vec(255, 255, 255))
+        }
+        if (I == 7) {
+            addTextToTable("'touch <Name>': Makes a file", vec(255, 255, 255))
+        }
+        if (I == 8) {
+            addTextToTable("'ls': Reads the contents in that directory", vec(255, 255, 255))
+        }
+        if (I == 9) {
+            addTextToTable("'cd <Text>': Goes to or back a directory or changes medium (cd HDD)", vec(255, 255, 255))
+        }
+        if (I == 10) {
+            addTextToTable("'rm <Name>': Removes the directory or file in that directory", vec(255, 255, 255))
+        }
+        if (I == 11) {
+            #addTextToTable("'write <Name> <Text>': Writes the text to the file", vec(255, 255, 255)) # Gone but never forgotten
+        }
+        if (I == 12) {
+            #addTextToTable("'read <Name>': Reads the text of the file", vec(255, 255, 255)) # Gone but never forgotten
+        }
+        if (I == 13) {
+            addTextToTable("'clear': Clears the screen form all texts", vec(255, 255, 255))
+        }
+        if (I == 14) {
+            addTextToTable("'changescroll': Changes scroll type for text", vec(255, 255, 255))
+        }
+        if (I == 15) {
+            addTextToTable("'plugindetect': Checks if plugins are installed", vec(255, 255, 255))
+        }
+        if (I == 16) {
+            addTextToTable("'run <File>': Runs a program", vec(255, 255, 255))
+        }
+        if (I == 17) {
+            addTextToTable("'cputime': Gives out you cpu time usage", vec(255, 255, 255))
+        }
+        if (I == 18) {
+            addTextToTable("'texter <File>': A text editor", vec(255, 255, 255))
+        }
+    }
+}
+
+# The Power Expresion Libary (PE Lib)
+function void peCode(Code:string) {
+    local SpacePos = Code:find(" ")  # Correct function for string search
+    local Command = Code
+    local Argument = ""
+    
+    if (SpacePos != -1) {
+        Command = Code:sub(1, SpacePos - 1)  # Extract command
+        Argument = Code:sub(SpacePos + 1, Code:length())  # Extract the rest of the command line
+    
+        # Create an array to store arguments
+        Arguments = array()
+        
+        # Count how many spaces exist in the remaining string
+        local SpaceCount = 10  # Count spaces to determine loop iterations
+    
+        # Extract arguments using a for loop
+        for (I = 1, SpaceCount + 1) {
+            local NextSpacePos = Argument:find(" ")
+            if (NextSpacePos != -1) {
+                local NextSpacePos = Argument:find(" ")
+                Arguments[Arguments:count()+1, string] = Argument:sub(1, NextSpacePos - 1)  # Store the argument in the array
+                Argument = Argument:sub(NextSpacePos + 1, Argument:length())  # Trim the parsed argument
+            } else {
+                Arguments[Arguments:count()+1, string] = Argument  # Push the last argument (or full argument if there was no space)
+            }
+        }
+    }
+    
+    # Process the command
+    if (Command == "print") {
+        local VarC1 = Arguments[1, string]:toNumber()
+        local VarC2 = Arguments[2, string]:toNumber()
+        local VarC3 = Arguments[3, string]:toNumber()
+        local ArgumentText = Code:sub(SpacePos + Arguments[1, string]:length() + Arguments[2, string]:length() + Arguments[3, string]:length() + 4, Code:length())
+        addTextToTable(ArgumentText, vec(VarC1, VarC2, VarC3))
+    } elseif (Command == "editprint") {
+        local VarGoTo = Arguments[1, string]:toNumber()
+        local VarC1 = Arguments[2, string]:toNumber()
+        local VarC2 = Arguments[3, string]:toNumber()
+        local VarC3 = Arguments[4, string]:toNumber()
+        local ArgumentText = Code:sub(SpacePos + Arguments[1, string]:length() + Arguments[2, string]:length() + Arguments[3, string]:length() + Arguments[4, string]:length() + 5, Code:length())
+        editTextToTable(HowManyLines-VarGoTo,ArgumentText, vec(VarC1, VarC2, VarC3))
+    } elseif (Command == "delprint") {
+        local VarGoTo = Arguments[1, string]:toNumber()
+        removeTextToTable(HowManyLines-VarGoTo)
+    } elseif (Command == "graphicAdd") {
+        local VarC1 = Arguments[2, string]:toNumber()
+        local VarC2 = Arguments[3, string]:toNumber()
+        local VarC3 = Arguments[4, string]:toNumber()
+        local Size1 = Arguments[5, string]:toNumber()
+        local Size2 = Arguments[6, string]:toNumber()
+        local VarC4 = Arguments[7, string]:toNumber()
+        local VarC5 = Arguments[8, string]:toNumber()
+        local VarC6 = Arguments[9, string]:toNumber()
+        local VarC7 = Arguments[10, string]:toNumber()
+        local ArgumentText = Code:sub(SpacePos + 1, Code:length() - (5 + Arguments[2, string]:length() + Arguments[3, string]:length() + Arguments[4, string]:length() + Arguments[5, string]:length() + Arguments[6, string]:length() + Arguments[7, string]:length() + Arguments[8, string]:length() + Arguments[9, string]:length() + Arguments[10, string]:length()))
+        print(ArgumentText)
+        print(vec(VarC1, VarC2, VarC3))
+        print(vec2(Size1, Size2))
+        print(vec2(VarC4, VarC5))
+        print(vec2(VarC6, VarC7))
+        addGraphicsToTable(ArgumentText, vec(VarC1, VarC2, VarC3), vec2(Size1, Size2), vec2(VarC4, VarC5), vec2(VarC6, VarC7))
+    } elseif (Command == "graphicEdit") {
+        local VarGoTo = Arguments[2, string]:toNumber()
+        local VarC1 = Arguments[3, string]:toNumber()
+        local VarC2 = Arguments[4, string]:toNumber()
+        local VarC3 = Arguments[5, string]:toNumber()
+        local Size1 = Arguments[6, string]:toNumber()
+        local Size2 = Arguments[7, string]:toNumber()
+        local VarC4 = Arguments[8, string]:toNumber()
+        local VarC5 = Arguments[9, string]:toNumber()
+        local VarC6 = Arguments[10, string]:toNumber()
+        local VarC7 = Arguments[11, string]:toNumber()
+        local ArgumentText = Code:sub(SpacePos + 1, Code:length() - (6 + Arguments[2, string]:length() + Arguments[3, string]:length() + Arguments[4, string]:length() + Arguments[5, string]:length() + Arguments[6, string]:length() + Arguments[7, string]:length() + Arguments[8, string]:length() + Arguments[9, string]:length() + Arguments[10, string]:length()+ Arguments[11, string]:length()))
+        editGraphicsToTable(HowManyLines-VarGoTo,ArgumentText, vec(VarC1, VarC2, VarC3), vec2(Size1, Size2), vec2(VarC4, VarC5), vec2(VarC6, VarC7))
+    } elseif (Command == "graphicDel") {
+        local VarGoTo = Arguments[1, string]:toNumber()
+        removeGraphicsToTable(HowManyLines-VarGoTo)
+    } elseif (Command == "if") {
+        local Condition = Arguments[1, string]
+        local SpacePos2 = Code:find(" ")
+        if (Condition:toNumber()) {
+            local AddLines = 0
+            local ArgumentText = Code:sub(0, Code:length())
+            local Lines = ArgumentText:explode("\n")
+            print(Lines)
+            local CodeLine = ""
+                    
+            # Save each line to the TextLines array
+            for (J = 1, Lines:count()) {
+                if (Lines[J, string]:sub(1,3) == "PE(" && AddLines == 0) {
+                    local R1 = Lines[J, string]:replace("PE(", "")
+                    local R2 = R1:replace(")","")
+                    local R3 = R1:replace("){","")
+                    if (R1:sub(R1:length()) == ")") {
+                        peCode(R2)
+                    } elseif (R1:sub(R1:length()-1, R1:length()) == "){") {
+                        AddLines = 1
+                        CodeLine = CodeLine + R3 + "\n"
+                    } else {
+                        addTextToTable("ERROR: Line "+J+": Code not closed!", vec(255,0,0))
+                        addTextToTable("Fault caused! Stoping code...", vec(255,0,0))
+                        return
+                    }
+                    #print("Text1: " + R2)
+                    #peCode(R2)
+                } elseif (AddLines == 1) {
+                    if (Lines[J, string]:sub(1) == "}") {
+                        AddLines = 2
+                        CodeLine = CodeLine:sub(0,CodeLine:length()-1)
+                    } else {
+                        CodeLine = CodeLine + Lines[J, string] + "\n"
+                    }
+                } elseif (AddLines == 2) {
+                    #print(CodeLine)
+                    peCode(CodeLine)
+                    AddLines = 0
+                    CodeLine = ""
+                }
+            }
+        }
+    } elseif (Command == "for") {
+        local VarName = Arguments[1, string]
+        local StartVal = Arguments[2, string]:toNumber()
+        local EndVal = Arguments[3, string]:toNumber()
+        local Step = Arguments[4, string]:toNumber()
+        local LoopCommand = Arguments[5, string]
+        local ArgumentText = Code:sub(Arguments[1, string]:length() + Arguments[2, string]:length() + Arguments[3, string]:length() + Arguments[4, string]:length() + 3, Code:length())
+        for (I = StartVal, EndVal, Step) {
+            local Coder = ArgumentText:explode("\n")
+            for (J = 1, Coder:count(), 1) {
+                peCode(Coder[J, string])
+            }
+        }
+    } elseif (Command == "setVal") {
+        local VarName = Arguments[1, string]
+        local Value = Arguments[2, string]
+        VarSavePE[VarName, string] = Value
+    } elseif (Command == "getVal") {
+        local VarName = Arguments[1, string]
+        print(VarSavePE[VarName, string])
+    } elseif (Command == "makeProgramWork") {
+        local VarName = Arguments[1, string]:toNumber()
+        ProgramRunningUsingKeyboard = VarName
+    } elseif (Command == "createFile") {
+        local VarName = Arguments[1, string]
+        writeToMedium(MediumChoice, "FILE//" + CurrentDirectory + VarName)
+    } elseif (Command == "createFolder") {
+        local VarName = Arguments[1, string]
+        writeToMedium(MediumChoice, "DIR//" + CurrentDirectory + VarName)
+    } elseif (Command == "removeFile") {
+        local VarName = Arguments[1, string]
+        removeItem(VarName)
+    } elseif (Command == "changeMedium") {
+        local VarName = Arguments[1, string]:toNumber()
+        MediumChoice = VarName
+    } elseif (Command == "changeDirectory") {
+        local VarName = Arguments[1, string]
+        changeDirectory(VarName)
+    } elseif (Command == "clearScreenTable") {
+        clearDisplayTable()
+    } elseif (Command == "run") {
+        local FileName = Arguments[1, string]
+        if (FileName == "/Ver") {
+            editTextToTable(HowManyLines-1, "Run V1.1 - Always running programs since its creation!", vec(255,255,255))
+        } elseif (FileName == "/VerPE") {
+            editTextToTable(HowManyLines-1, "Power Expression 1 - The Computers Powerhouse", vec(255,255,255))
+        } else {
+            for (I = 1, HDDRead:count()) {
+                local Entry = HDDRead[I, string]
+                if (Entry:sub(1, 8 + CurrentDirectory:length() + FileName:length()) == "FILE//" + CurrentDirectory + FileName + "::") {
+                    local Content = Entry:sub(9 + CurrentDirectory:length() + FileName:length())
+                    local Lines = Content:explode("\n")
+                    local AddLines = 0
+                    local CodeLine = ""
+                    
+                    # Save each line to the TextLines array
+                    for (J = 1, Lines:count()) {
+                        if (Lines[J, string]:sub(1,3) == "PE(" && AddLines == 0) {
+                            local R1 = Lines[J, string]:replace("PE(", "")
+                            local R2 = R1:replace(")","")
+                            local R3 = R1:replace("){","")
+                            if (R1:sub(R1:length()) == ")") {
+                                peCode(R2)
+                            } elseif (R1:sub(R1:length()-1, R1:length()) == "){") {
+                                AddLines = 1
+                                CodeLine = CodeLine + R3 + "\n"
+                            } else {
+                                addTextToTable("ERROR: Line "+J+": Code not closed!", vec(255,0,0))
+                                addTextToTable("Fault caused! Stoping run...", vec(255,0,0))
+                                return
+                            }
+                            #print("Text1: " + R2)
+                            #peCode(R2)
+                        } elseif (AddLines == 1) {
+                            if (Lines[J, string]:sub(1) == "}") {
+                                AddLines = 2
+                                CodeLine = CodeLine:sub(0,CodeLine:length()-1)
+                            } else {
+                                CodeLine = CodeLine + Lines[J, string] + "\n"
+                            }
+                        } elseif (AddLines == 2) {
+                            #print(CodeLine)
+                            peCode(CodeLine)
+                            AddLines = 0
+                            CodeLine = ""
+                        }
+                    }
+                }
+            }
+        }
+    } elseif (Command == "setPluginArray") {
+        local Var = Arguments[1, string]:sub(1,1)
+        local ArgumentText = Code:sub(15+3, Code:length())
+        local Coder = ArgumentText:explode("\n")
+        #print(Var)
+        #print(Code)
+        #print(ArgumentText)
+        #print(Coder)
+        if (Var == "1") {
+            PluginSlotIn1 = Coder
+        } elseif (Var == "2") {
+            PluginSlotIn2 = Coder
+        } elseif (Var == "3") {
+            PluginSlotIn3 = Coder
+        } elseif (Var == "4") {
+            PluginSlotIn4 = Coder
+        } elseif (Var == "5") {
+            PluginSlotIn5 = Coder
+        } else {
+            displayError("No Plugin Array found with slot: " + Var, 2)
+        }
+    } elseif (Command == "clearScreen") {
+        clearDisplayTable()
+    } elseif (Command == "VerPE") {
+        addTextToTable("Power Expression 1 - The Computers Powerhouse", vec(255,255,255))
+    } else {
+        displayError("Unknown code: " + Command, 2)
+    }
+}
+
+# Program Runner
+function void run(FileName:string) {
+    addTextToTable("Starting: " + FileName, vec(255,255,255))
+    if (FileName == "/Ver") {
+        editTextToTable(HowManyLines-1, "Run V1.1 - Always running programs since its creation!", vec(255,255,255))
+    } elseif (FileName == "/VerPE") {
+        editTextToTable(HowManyLines-1, "Power Expression 1 - The Computers Powerhouse", vec(255,255,255))
+    } else {
+        for (I = 1, HDDRead:count()) {
+            local Entry = HDDRead[I, string]
+            if (Entry:sub(1, 8 + CurrentDirectory:length() + FileName:length()) == "FILE//" + CurrentDirectory + FileName + "::") {
+                local Content = Entry:sub(9 + CurrentDirectory:length() + FileName:length())
+                local Lines = Content:explode("\n")
+                #print(Lines)
+                local AddLines = 0
+                local CodeLine = ""
+                #print(CodeLine)
+                # Save each line to the TextLines array
+                for (J = 1, Lines:count()) {
+                    if (Lines[J, string]:sub(1,3) == "PE(" && AddLines == 0) {
+                        local R1 = Lines[J, string]:replace("PE(", "")
+                        local R2 = R1:replace(")","")
+                        local R3 = R1:replace("){","")
+                        if (R1:sub(R1:length()) == ")") {
+                            peCode(R2)
+                        } elseif (R1:sub(R1:length()-1, R1:length()) == "){") {
+                            AddLines = 1
+                            CodeLine = CodeLine + R3 + "\n"
+                        } else {
+                            addTextToTable("ERROR: Line "+J+": Code not closed!", vec(255,0,0))
+                            addTextToTable("Fault caused! Stoping run...", vec(255,0,0))
+                            return
+                        }
+                        #print("Text1: " + R2)
+                        #peCode(R2)
+                    } elseif (AddLines == 1) {
+                        if (Lines[J, string]:sub(1) == "}") {
+                            AddLines = 2
+                            CodeLine = CodeLine:sub(0,CodeLine:length()-1)
+                        } else {
+                            CodeLine = CodeLine + Lines[J, string] + "\n"
+                        }
+                    } elseif (AddLines == 2) {
+                        #print(CodeLine)
+                        peCode(CodeLine)
+                        AddLines = 0
+                        CodeLine = ""
+                    }
+                }
+            }
+        }
+    }
+}
+
+# Texter (Text program)
+function void texter(FileName2:string) {
+    # Fix
+    FileName = FileName2
+    IsItRunning = 1
+    
+    if (FileName == "/Ver") {
+        addTextToTable("--------------------------------------------------------------------------------------", vec(255, 255, 255))
+        addTextToTable("Texter - A text editing program", vec(255, 255, 255))
+        addTextToTable("Version: 1.3 - Added cursor for the x direction.", vec(255, 255, 255))
+        addTextToTable("Version: 1.2 - Saving problem fixed!", vec(255, 255, 255))
+        addTextToTable("Version: 1.1 - Added page system.", vec(255, 255, 255))
+        addTextToTable("Version: 1.0 - Its creation.", vec(255, 255, 255))
+        addTextToTable("", vec(255, 255, 255))
+        addTextToTable("Disclamer: I feel bad about this but the event part and the version 1.3 update", vec(255, 255, 255))
+        addTextToTable("was made with AI because I didn't knew how I could make something like this", vec(255, 255, 255))
+        addTextToTable("in code. I am sorry but now I know how to use them and in the future I will", vec(255, 255, 255))
+        addTextToTable("try writing code without AI. - Hellyeah24", vec(255, 255, 255))
+        addTextToTable("--------------------------------------------------------------------------------------", vec(255, 255, 255))
+        addTextToTable("--------------------------------------------------------------------------------------", vec(255, 255, 255))
+        clearKeyboard()
+        exit()
+    }
+    
+    ProgramRunningUsingKeyboard = 1
+    
+    # Initialize the text editor
+    function void initEditor() {
+        Page = 1
+        Pages = 1
+        PagesNumberAdd = 0
+        IsShiftPressed = 0
+        CursorPos = 1
+        CursorPosX = 0
+        IsInEditMode = 1
+        CommandInput = ""
+        KeysTyped = ""
+    }
+
+    # Update the text-based display
+    function void updateWindow2() {
+        clearDisplayTable()
+        clearScreen()
+        addTextToTable("--------------------------------------------------------------------------------------", vec(255, 255, 255))
+        addTextToTable("Texter V1.3 - Added Cursor for the x direction", vec(255, 255, 255))
+        addTextToTable("Use 'rshift' to switch to select mode for modes.", vec(255, 255, 255))
+        addTextToTable("Modes: 1 - Save, 2 - Up, 3 - Down, 4 - Left, 5 - Right, 6 - Exit", vec(255, 255, 255))
+        addTextToTable("--------------------------------------------------------------------------------------", vec(255, 255, 255))
+        
+        # Display text lines
+        for (I = 1, 25) {
+            local AddnumText = ""
+            if (I < 10 && Page <= 1) {AddnumText = "0"} else {AddnumText = ""}
+            if (I == CursorPos) {
+                local LineText = TextLines[I+PagesNumberAdd, string]
+                if (CursorPosX > LineText:length()) { CursorPosX = LineText:length() }
+                local BeforeCursor = LineText:sub(1, CursorPosX)
+                local AfterCursor = LineText:sub(CursorPosX + 1)
+                addTextToTable("[Line "+AddnumText+(I+PagesNumberAdd)+"]> " + BeforeCursor + "<" + AfterCursor, vec(0, 255, 0))
+
+            } else {
+                addTextToTable("[Line "+AddnumText+(I+PagesNumberAdd)+"]| " + TextLines[I+PagesNumberAdd, string], vec(255, 255, 255))
+            }
+        }
+    
+        addTextToTable("--------------------------------------------------------------------------------------", vec(255, 255, 255))
+        addTextToTable("File: "+FileName+" | Cursor Position: " + (CursorPos+PagesNumberAdd) + " | Page: " + Page + "/" + Pages, vec(255, 255, 255))
+        local ActiveText = ""
+        if (IsInEditMode == 1) {ActiveText = "Not active"} else {ActiveText = "Active"}
+        addTextToTable("["+ActiveText+"] Command Input: " + CommandInput, vec(255, 255, 255))
+        addTextToTable("--------------------------------------------------------------------------------------", vec(255, 255, 255))
+    }
+
+    # Edit the current line (if in edit mode)
+    function void handleEdit() {
+        if (IsInEditMode == 1) {
+            if (KeysTyped != "") {
+                local Line = TextLines[CursorPos+PagesNumberAdd, string]
+                local Before = Line:sub(1, CursorPosX)
+                local After = Line:sub(CursorPosX + 1)
+                TextLines[CursorPos+PagesNumberAdd, string] = Before + KeysTyped + After
+                CursorPosX += KeysTyped:length()
+                KeysTyped = ""
+                updateWindow2()
+            }
+        }
+        clearDisplayTable()
+    }
+
+    # Save file function
+    function void saveFile() {
+        local Content = ""
+        for (I = 1, TextLines:count()) {
+            Content = Content + TextLines[I, string] + "\n"
+        }
+        if (MediumChoice == 1) {
+            HDDWrite = HDDRead
+            for (I = 1, HDDRead:count()) {
+                local Entry = HDDRead[I, string]
+                if (Entry == "FILE//" + CurrentDirectory + FileName || Entry:sub(1, 8 + CurrentDirectory:length() + FileName:length()) == "FILE//" + CurrentDirectory + FileName + "::") { 
+                    HDDWrite[I, string] = "FILE//" + CurrentDirectory  + FileName + "::" + Content
+                    addTextToTable("Written to '" + CurrentDirectory + FileName + "'.", vec(0, 255, 0))
+                    updateWindow2()
+                }
+            }
+        } elseif (MediumChoice == 2) {
+            USBWrite = USBRead
+            for (I = 1, USBRead:count()) {
+                local Entry = USBRead[I, string]
+                if (Entry == "FILE//" + CurrentDirectory + FileName || Entry:sub(1, 8 + CurrentDirectory:length() + FileName:length()) == "FILE//" + CurrentDirectory + FileName + "::") { 
+                    USBWrite[I, string] = "FILE//" + CurrentDirectory  + FileName + "::" + Content
+                    addTextToTable("Written to '" + CurrentDirectory + FileName + "'.", vec(0, 255, 0))
+                    updateWindow2()
+                }
+            }
+        } elseif (MediumChoice == 3) {
+            CDWrite = CDRead
+            for (I = 1, CDRead:count()) {
+                local Entry = CDRead[I, string]
+                if (Entry == "FILE//" + CurrentDirectory + FileName || Entry:sub(1, 8 + CurrentDirectory:length() + FileName:length()) == "FILE//" + CurrentDirectory + FileName + "::") { 
+                    CDWrite[I, string] = "FILE//" + CurrentDirectory  + FileName + "::" + Content
+                    addTextToTable("Written to '" + CurrentDirectory + FileName + "'.", vec(0, 255, 0))
+                    updateWindow2()
+                }
+            }
+        }
+        Content = ""
+        addTextToTable("File saved as '" + FileName + "'.", vec(0, 255, 0))
+    }
+    
+    # Save file function
+    function void readFile() {
+        local Content = ""
+        if (MediumChoice == 1) {
+            for (I = 1, HDDRead:count()) {
+                local Entry = HDDRead[I, string]
+                if (Entry:sub(1, 8 + CurrentDirectory:length() + FileName:length()) == "FILE//" + CurrentDirectory + FileName + "::") {
+                    local Content = Entry:sub(9 + CurrentDirectory:length() + FileName:length())
+                    local Lines = Content:explode("\n")
+            
+                    # Save each line to the TextLines array
+                    local PageAddNum = 0
+                    for (J = 1, Lines:count()) {
+                        TextLines[J, string] = Lines[J, string]
+                    }
+                }
+            }
+        } elseif (MediumChoice == 2) {
+            for (I = 1, USBRead:count()) {
+                local Entry = USBRead[I, string]
+                if (Entry:sub(1, 8 + CurrentDirectory:length() + FileName:length()) == "FILE//" + CurrentDirectory + FileName + "::") {
+                    local Content = Entry:sub(9 + CurrentDirectory:length() + FileName:length())
+                    local Lines = Content:explode("\n")
+            
+                    # Save each line to the TextLines array
+                    for (J = 1, Lines:count()) {
+                        TextLines[J, string] = Lines[J, string]
+                    }
+                }
+            }
+        } elseif (MediumChoice == 3) {
+            for (I = 1, CDRead:count()) {
+                local Entry = CDRead[I, string]
+                if (Entry:sub(1, 8 + CurrentDirectory:length() + FileName:length()) == "FILE//" + CurrentDirectory + FileName + "::") {
+                    local Content = Entry:sub(9 + CurrentDirectory:length() + FileName:length())
+                    local Lines = Content:explode("\n")
+            
+                    # Save each line to the TextLines array
+                    for (J = 1, Lines:count()) {
+                        TextLines[J, string] = Lines[J, string]
+                    }
+                }
+            }
+        }
+        updateWindow2()
+    }
+    
+    # Move text mouse right
+    function void gomouseleft() {
+        if (CursorPosX > 0) {
+            CursorPosX--
+        }
+    }
+    
+    # Move text mouse left
+    function void gomouseright() {
+        local LineLen = TextLines[CursorPos+PagesNumberAdd, string]:length()
+        if (CursorPosX < LineLen) {
+            CursorPosX++
+        }
+    }
+
+    
+    # Page go forward function
+    function void goright() {
+        Page++
+        PagesNumberAdd = PagesNumberAdd + 25
+        if (Pages < Page) {
+            Pages++
+        }
+        updateWindow2()
+    }
+
+    # Page go backward function
+    function void goleft() {
+        if (Page > 1) {
+            Page--
+            PagesNumberAdd = PagesNumberAdd - 25
+        }
+        updateWindow2()
+    }
+
+    # Scroll up function
+    function void scrollUp() {
+        if(CursorPos <= 1 && Page > 1) {
+                CursorPos = 25
+                goleft()
+        } elseif (CursorPos > 1) {
+            CursorPos--
+        }
+        updateWindow2()
+    }
+
+    # Scroll down function
+    function void scrollDown() {
+        if(CursorPos >= 25 && Page >= 1) {
+                CursorPos = 1
+                goright()
+        } elseif (CursorPos < 25) {
+            CursorPos++
+        }
+        updateWindow2()
+    }
+
+    # Handle user input commands
+    function void handleCommand() {
+        if (CommandInput == "1") {
+            saveFile()
+        } elseif (CommandInput == "2") {
+            scrollUp()
+        } elseif (CommandInput == "3") {
+            scrollDown()
+        } elseif (CommandInput == "4") {
+            gomouseleft()
+        } elseif (CommandInput == "5") {
+            gomouseright()
+        } elseif (CommandInput == "6") {
+            clearDisplayTable()
+            addTextToTable("Exiting Texter V1.3...", vec(255, 0, 0))
+            addTextToTable("", vec(255, 0, 0))
+            ProgramRunningUsingKeyboard = 0
+            TextLines = array()
+            IsItRunning = 0
+            exit()
+        } else {
+            addTextToTable("Unknown command. Use '|' to switch to select mode for modes.", vec(255, 0, 0))
+        }
+        CommandInput = ""  # Reset command input after processing
+    }
+
+    # Event handler for key presses
+    event keyPressed(Player:entity, Key:string, Down:number, Bind:string) {
+        if (Player == UserEntity && ProgramRunningUsingKeyboard == 1 && IsItRunning == 1) {
+            if (Down == 1) {  # Key press event
+                if (Key == "enter") {
+                    if (IsInEditMode == 0) {
+                        handleCommand()  # Execute the command when 'enter' is pressed in command mode
+                        CommandInput = ""  # Reset command input after execution
+                    } else {
+                        updateWindow2()
+                    }
+                } elseif (Key == "backspace") {
+                    if (IsInEditMode == 1 && TextLines[CursorPos+PagesNumberAdd, string]:length() > 0) {
+                        local Line = TextLines[CursorPos+PagesNumberAdd, string]
+                        if (CursorPosX > 0) {
+                            local Before = Line:sub(1, CursorPosX - 1)
+                            local After = Line:sub(CursorPosX + 1)
+                            TextLines[CursorPos+PagesNumberAdd, string] = Before + After
+                            CursorPosX--
+                        }
+                    } elseif (CommandInput:length() > 0) {
+                        CommandInput = CommandInput:sub(1, CommandInput:length() - 1)
+                    }
+                    updateWindow2()
+                } elseif (Key == "up") {
+                    scrollUp()
+                } elseif (Key == "down") {
+                    scrollDown()
+                } elseif (Key == "left") {
+                    gomouseleft()
+                } elseif (Key == "right") {
+                    gomouseright()
+                } elseif (Key == "space") {
+                    if (IsInEditMode == 1) {
+                        KeysTyped = " "
+                    } else {
+                        CommandInput = CommandInput + " "
+                    }
+                    handleEdit()
+                } elseif (Key == "equal") {
+                    if (IsrRaltlcontrolPressed == 1) {
+                        if (IsInEditMode == 1) {
+                            KeysTyped = "~"
+                        } else {
+                            CommandInput = CommandInput + "~"
+                        }
+                    } elseif (IsShiftPressed == 1) {
+                        if (IsInEditMode == 1) {
+                            KeysTyped = "*"
+                        } else {
+                            CommandInput = CommandInput + "*"
+                        }
+                    } else {
+                        if (IsInEditMode == 1) {
+                            KeysTyped = "+"
+                        } else {
+                            CommandInput = CommandInput + "+"
+                        }
+                    }
+                    handleEdit()
+                } elseif (Key == "minus") {
+                    if (IsShiftPressed == 1) {
+                        if (IsInEditMode == 1) {
+                            KeysTyped = "_"
+                        } else {
+                            CommandInput = CommandInput + "_"
+                        }
+                    } else {
+                        if (IsInEditMode == 1) {
+                            KeysTyped = "-"
+                        } else {
+                            CommandInput = CommandInput + "-"
+                        }
+                    }
+                    handleEdit()
+                } elseif (Key == "lbracket") {
+                    if (IsInEditMode == 1) {
+                        KeysTyped = "?"
+                    } else {
+                        CommandInput = CommandInput + "?"
+                    }
+                    handleEdit()
+                } elseif (Key == "rcontrol") {
+                    updateWindow2()
+                } elseif (Key == "lshift") {
+                    IsShiftPressed = 1
+                    updateWindow2()
+                } elseif (Key == "ralt") {
+                    IsrRaltlcontrolPressed = 1
+                    updateWindow2()
+                } elseif (Key == "rshift") {
+                    if (IsInEditMode == 1) {
+                        IsInEditMode = 0
+                        updateWindow2()
+                    } else {
+                        IsInEditMode = 1
+                        updateWindow2()
+                    }
+                } else {
+                    if (IsInEditMode == 1) {
+                        if (IsrRaltlcontrolPressed == 1) {
+                            if (Key == "<") {
+                                KeysTyped = "|"
+                            } elseif (Key == "equal") {
+                                KeysTyped = "~"
+                            } elseif (Key == "7") {
+                                KeysTyped = "{"
+                            } elseif (Key == "8") {
+                                KeysTyped = "["
+                            } elseif (Key == "9") {
+                                KeysTyped = "]"
+                            } elseif (Key == "0") {
+                                KeysTyped = "}"
+                            } elseif (Key == "lbracket") {
+                                KeysTyped = "\\"
+                            }
+                        } elseif (IsShiftPressed == 0) {
+                            if (Key == "period") {
+                                KeysTyped = "."
+                            } elseif (Key == "comma") {
+                                KeysTyped = ","
+                            } elseif (Key == "minus") {
+                                KeysTyped = "-"
+                            } else {
+                                KeysTyped = Key:lower()
+                            }
+                        } else {
+                            if (Key == "1") {
+                                KeysTyped = "!"
+                            } elseif (Key == "2") {
+                                KeysTyped = "''"
+                            } elseif (Key == "3") {
+                                KeysTyped = "$"
+                            } elseif (Key == "4") {
+                                KeysTyped = "$"
+                            } elseif (Key == "5") {
+                                KeysTyped = "%"
+                            } elseif (Key == "6") {
+                                KeysTyped = "&"
+                            } elseif (Key == "7") {
+                                KeysTyped = "/"
+                            } elseif (Key == "8") {
+                                KeysTyped = "("
+                            } elseif (Key == "9") {
+                                KeysTyped = ")"
+                            } elseif (Key == "0") {
+                                KeysTyped = "="
+                            } elseif (Key == ",") {
+                                KeysTyped =  ";"
+                            } elseif (Key == ".") {
+                                KeysTyped = ":"
+                            } elseif (Key == "equal") {
+                                KeysTyped = "*"
+                            } elseif (Key == "minus") {
+                                KeysTyped = "_"
+                            } elseif (Key == "<") {
+                                KeysTyped = ">"
+                            } elseif (Key == "lbracket") {
+                                KeysTyped = "?"
+                            } elseif (Key == "period") {
+                                KeysTyped = ":"
+                            } elseif (Key == "comma") {
+                                KeysTyped = ";"
+                            } else {
+                                KeysTyped = Key:upper()
+                            }
+                        }
+                        handleEdit()
+                    } elseif (IsInEditMode == 0) {
+                        if (IsrRaltlcontrolPressed == 1) {
+                            if (Key == "<") {
+                                CommandInput = CommandInput + "|"
+                            } elseif (Key == "equal") {
+                                CommandInput = CommandInput + "~"
+                            } elseif (Key == "7") {
+                                CommandInput = CommandInput + "{"
+                            } elseif (Key == "8") {
+                                CommandInput = CommandInput + "["
+                            } elseif (Key == "9") {
+                                CommandInput = CommandInput + "]"
+                            } elseif (Key == "0") {
+                                CommandInput = CommandInput + "}"
+                            } elseif (Key == "lbracket") {
+                                CommandInput = CommandInput + "\\"
+                            }
+                        } elseif (IsShiftPressed == 0) {
+                            CommandInput = CommandInput + Key:lower()
+                        } else {
+                            if (Key == "1") {
+                                CommandInput = CommandInput + "!"
+                            } elseif (Key == "2") {
+                                CommandInput = CommandInput + "''"
+                            } elseif (Key == "3") {
+                                CommandInput = CommandInput + "$"
+                            } elseif (Key == "4") {
+                                CommandInput = CommandInput + "$"
+                            } elseif (Key == "5") {
+                                CommandInput = CommandInput + "%"
+                            } elseif (Key == "6") {
+                                CommandInput = CommandInput + "&"
+                            } elseif (Key == "7") {
+                                CommandInput = CommandInput + "/"
+                            } elseif (Key == "8") {
+                                CommandInput = CommandInput + "("
+                            } elseif (Key == "9") {
+                                CommandInput = CommandInput + ")"
+                            } elseif (Key == "0") {
+                                CommandInput = CommandInput + "="
+                            } elseif (Key == ",") {
+                                CommandInput = CommandInput + ";"
+                            } elseif (Key == ".") {
+                                CommandInput = CommandInput + ":"
+                            } elseif (Key == "equal") {
+                                CommandInput = CommandInput + "*"
+                            } elseif (Key == "-") {
+                                CommandInput = CommandInput + "_"
+                            } elseif (Key == "<") {
+                                CommandInput = CommandInput + ">"
+                            } elseif (Key == "lbracket") {
+                                CommandInput = CommandInput + "?"
+                            } else {
+                                CommandInput = CommandInput + Key:upper()
+                            }
+                        }
+                        updateWindow2()
+                    } else {
+                        if (IsrRaltlcontrolPressed == 1) {
+                            if (Key == "<") {
+                                CommandInput = CommandInput + "|"
+                            } elseif (Key == "equal") {
+                                CommandInput = CommandInput + "~"
+                            } elseif (Key == "7") {
+                                CommandInput = CommandInput + "{"
+                            } elseif (Key == "8") {
+                                CommandInput = CommandInput + "["
+                            } elseif (Key == "9") {
+                                CommandInput = CommandInput + "]"
+                            } elseif (Key == "0") {
+                                CommandInput = CommandInput + "}"
+                            } elseif (Key == "lbracket") {
+                                CommandInput = CommandInput + "\\"
+                            }
+                        } elseif (IsShiftPressed == 0) {
+                            CommandInput = CommandInput + Key:lower()
+                        } else {
+                            if (Key == "1") {
+                                CommandInput = CommandInput + "!"
+                            } elseif (Key == "2") {
+                                CommandInput = CommandInput + "''"
+                            } elseif (Key == "3") {
+                                CommandInput = CommandInput + "$"
+                            } elseif (Key == "4") {
+                                CommandInput = CommandInput + "$"
+                            } elseif (Key == "5") {
+                                CommandInput = CommandInput + "%"
+                            } elseif (Key == "6") {
+                                CommandInput = CommandInput + "&"
+                            } elseif (Key == "7") {
+                                CommandInput = CommandInput + "/"
+                            } elseif (Key == "8") {
+                                CommandInput = CommandInput + "("
+                            } elseif (Key == "9") {
+                                CommandInput = CommandInput + ")"
+                            } elseif (Key == "0") {
+                                CommandInput = CommandInput + "="
+                            } elseif (Key == ",") {
+                                CommandInput = CommandInput + ";"
+                            } elseif (Key == ".") {
+                                CommandInput = CommandInput + ":"
+                            } elseif (Key == "equal") {
+                                CommandInput = CommandInput + "*"
+                            } elseif (Key == "-") {
+                                CommandInput = CommandInput + "_"
+                            } elseif (Key == "<") {
+                                CommandInput = CommandInput + ">"
+                            } elseif (Key == "lbracket") {
+                                CommandInput = CommandInput + "?"
+                            } else {
+                                CommandInput = CommandInput + Key:upper()
+                            }
+                        }
+                        updateWindow2()
+                    }
+                }
+            } else {
+                if (Key == "lshift") {
+                    IsShiftPressed = 0
+                    updateWindow2()
+                } elseif (Key == "ralt") {
+                    IsrRaltlcontrolPressed = 0
+                    updateWindow2()
+                }
+            }
+            updateWindow2()
+        }
+    }
+
+    # Initialize the editor
+    initEditor()
+    readFile()
+    updateWindow2()
+}
+
+# Commander
+function void commander(Text:string) {
+    local SpacePos = Text:find(" ")  # Correct function for string search
+    local Command = Text
+    local Argument = ""
+    local Argument2 = ""
+    
+    if (SpacePos != -1) {
+        Command = Text:sub(1, SpacePos - 1)  # Command is the part before the first space
+        Argument = Text:sub(SpacePos + 1, Text:length())  # Argument is the part after the first space
+        
+        local SecondSpacePos = Argument:find(" ")  # Find the next space in the Argument string
+        if (SecondSpacePos != -1) {
+            Argument2 = Argument:sub(SecondSpacePos + 1, Argument:length())  # Extract Argument2 after the second space
+            Argument = Argument:sub(1, SecondSpacePos - 1)  # Update Argument to be the part before the second space
+        }
+    }
+    local EchoText = Text:replace("echo", "")
+    EchoText = Text:replace(EchoText, "")
+    if (Text == "harddetect") {
+        testHardware()
+    } elseif (Text == "clk") {
+        clock()
+    } elseif (EchoText == "echo") {
+        addTextToTable(Argument + " " + Argument2, vec(255, 255, 255))
+    } elseif (Text == "reset") {
+        reset()
+    } elseif (Text == "shutdown") {
+        shutdown()
+    } elseif (Text == "clear") {
+        clearDisplayTable()
+    } elseif (Command == "mkdir") {
+        createDirectory(Argument)
+    } elseif (Command == "touch") {
+        createFile(Argument)
+    } elseif (Command == "ls") {
+        listDirectory()
+    } elseif (Command == "cd") {
+        changeDirectory(Argument)
+    } elseif (Command == "rm") {
+        removeItem(Argument)
+    } elseif (Command == "help") {
+        help()
+    } elseif (Command == "changescroll") {
+        csp()
+    } elseif (Command == "plugindetect") {
+        pluginDetect()
+    } elseif (Command == "run") {
+        run(Argument)
+    } elseif (Command == "cputime") { 
+        cpuTime()
+    } elseif (Command == "texter") { 
+        texter(Argument)
+    } else {
+        for (I = 1, ProgramLinkPlugin:count(), 3) {
+            if (Command == ProgramLinkPlugin[I,string]) {
+                if (ProgramLinkPlugin[I+2,number] == 1) {
+                    PluginSlotIn1[1,string] = ProgramLinkPlugin[I+1,string]
+                } elseif (ProgramLinkPlugin[I+2,number] == 2) {
+                    PluginSlotIn2[1,string] = ProgramLinkPlugin[I+1,string]
+                } elseif (ProgramLinkPlugin[I+2,number] == 3) {
+                    PluginSlotIn3[1,string] = ProgramLinkPlugin[I+1,string]
+                } elseif (ProgramLinkPlugin[I+2,number] == 4) {
+                    PluginSlotIn4[1,string] = ProgramLinkPlugin[I+1,string]
+                } elseif (ProgramLinkPlugin[I+2,number] == 5) {
+                    PluginSlotIn5[1,string] = ProgramLinkPlugin[I+1,string]
+                }
+                return
+            }
+        }
+        addTextToTable("'" + Text + "' Illegal operation", vec(255, 255, 255))
+    }
+}
+
+# Plugin Functions
+function void pluginDetectText(Slot:number, Name:string, Version:string, Maker:string, Extra:string) {
+        for (I = 1, 6) { 
+        if (I == 1) {
+            addTextToTable("Slot "+Slot+":", vec(255, 255, 255))
+        }
+        if (I == 2) {
+            addTextToTable(Name, vec(255, 255, 255))
+        }
+        if (I == 3) {
+            addTextToTable(Version, vec(255, 255, 255))
+        }
+        if (I == 4) {
+            addTextToTable(Maker, vec(255, 255, 255))
+        }
+        if (I == 5) {
+            addTextToTable(Extra, vec(255, 255, 255))
+        }
+        if (I == 6) {
+            addTextToTable("", vec(255, 255, 255))
+        }
+    }
+}
+function void pluginRegestraionandAddingFunction() {
+    if (PluginSlot1["Name", string]:length() > 0) {
+        PluginTable[PluginTable:count(), string] = PluginSlot1["Name", string]
+        PluginTable[PluginTable:count()+1, string] = PluginSlot1["Version", string]
+        PluginTable[PluginTable:count()+1, string] = PluginSlot1["Maker", string]
+        PluginTable[PluginTable:count()+1, string] = PluginSlot1["Extra", string]
+        PluginTable[PluginTable:count()+1, string] = "Starting Up!"
+        PluginSlot1["SystemRegistered", number] = 1
+        #pluginDetectText(1, PluginSlot1["Name", string], PluginSlot1["Version", string], PluginSlot1["Maker", string], PluginSlot1["Extra", string])
+    }
+    if (PluginSlot2["Name", string]:length() > 0) {
+        PluginTable[PluginTable:count()+1, string] = PluginSlot2["Name", string]
+        PluginTable[PluginTable:count()+1, string] = PluginSlot2["Version", string]
+        PluginTable[PluginTable:count()+1, string] = PluginSlot2["Maker", string]
+        PluginTable[PluginTable:count()+1, string] = PluginSlot2["Extra", string]
+        PluginTable[PluginTable:count()+1, string] = "Starting Up!"
+        PluginSlot2["SystemRegistered", number] = 1
+        #pluginDetectText(2, PluginSlot2["Name", string], PluginSlot2["Version", string], PluginSlot2["Maker", string], PluginSlot2["Extra", string])
+    }
+    if (PluginSlot3["Name", string]:length() > 0) {
+        PluginTable[PluginTable:count()+1, string] = PluginSlot3["Name", string]
+        PluginTable[PluginTable:count()+1, string] = PluginSlot3["Version", string]
+        PluginTable[PluginTable:count()+1, string] = PluginSlot3["Maker", string]
+        PluginTable[PluginTable:count()+1, string] = PluginSlot3["Extra", string]
+        PluginTable[PluginTable:count()+1, string] = "Starting Up!"
+        PluginSlot3["SystemRegistered", number] = 1
+        #pluginDetectText(3, PluginSlot3["Name", string], PluginSlot3["Version", string], PluginSlot3["Maker", string], PluginSlot3["Extra", string])
+    }
+    if (PluginSlot4["Name", string]:length() > 0) {
+        PluginTable[PluginTable:count()+1, string] = PluginSlot4["Name", string]
+        PluginTable[PluginTable:count()+1, string] = PluginSlot4["Version", string]
+        PluginTable[PluginTable:count()+1, string] = PluginSlot4["Maker", string]
+        PluginTable[PluginTable:count()+1, string] = PluginSlot4["Extra", string]
+        PluginTable[PluginTable:count()+1, string] = "Starting Up!"
+        PluginSlot4["SystemRegistered", number] = 1
+        #pluginDetectText(4, PluginSlot4["Name", string], PluginSlot4["Version", string], PluginSlot4["Maker", string], PluginSlot4["Extra", string])
+    }
+    if (PluginSlot5["Name", string]:length() > 0) {
+        PluginTable[PluginTable:count()+1, string] = PluginSlot5["Name", string]
+        PluginTable[PluginTable:count()+1, string] = PluginSlot5["Version", string]
+        PluginTable[PluginTable:count()+1, string] = PluginSlot5["Maker", string]
+        PluginTable[PluginTable:count()+1, string] = PluginSlot5["Extra", string]
+        PluginTable[PluginTable:count()+1, string] = "Starting Up!"
+        PluginSlot5["SystemRegistered", number] = 1
+        #pluginDetectText(5, PluginSlot5["Name", string], PluginSlot5["Version", string], PluginSlot5["Maker", string], PluginSlot5["Extra", string])
+    }
+}
+
+function void pluginExecCustomCode(Code:string, Plugin:number) {
+    local SpacePos = Code:find(" ")  # Correct function for string search
+    local Command = Code
+    local Argument = ""
+    local Argument2 = ""
+    local Argument3 = ""
+    local Argument4 = ""
+    local Argument5 = ""
+    local Argument6 = ""
+    local Argument7 = ""
+    local Argument8 = ""
+    local Argument9 = ""
+    local Argument10 = ""
+    local P = PluginSlotIn1
+    
+    if (Plugin == 1) {
+        P = PluginSlotIn1
+    } elseif (Plugin == 2) {
+        P = PluginSlotIn2
+    } elseif (Plugin == 3) {
+        P = PluginSlotIn3
+    } elseif (Plugin == 4) {
+        P = PluginSlotIn4
+    } elseif (Plugin == 5) {
+        P = PluginSlotIn5
+    }
+    
+    if (SpacePos != -1) {
+        Command = Code:sub(1, SpacePos - 1)  # Extract command
+        Argument = Code:sub(SpacePos + 1, Code:length())  # Extract the rest of the command line
+    
+        # Create an array to store arguments
+        Arguments = array()
+        
+        # Count how many spaces exist in the remaining string
+        local SpaceCount = 10  # Count spaces to determine loop iterations
+    
+        # Extract arguments using a for loop
+        for (I = 1, SpaceCount + 1) {
+            local NextSpacePos = Argument:find(" ")
+            if (NextSpacePos != -1) {
+                local NextSpacePos = Argument:find(" ")
+                Arguments[Arguments:count()+1, string] = Argument:sub(1, NextSpacePos - 1)  # Store the argument in the array
+                Argument = Argument:sub(NextSpacePos + 1, Argument:length())  # Trim the parsed argument
+            } else {
+                Arguments[Arguments:count()+1, string] = Argument  # Push the last argument (or full argument if there was no space)
+            }
+        }
+    }
+    
+    Argument = Arguments[1, string]
+    Argument2 = Arguments[2, string]
+    Argument3 = Arguments[3, string]
+    Argument4 = Arguments[4, string]
+    Argument5 = Arguments[5, string]
+    Argument6 = ""
+    Argument7 = ""
+    Argument8 = ""
+    Argument9 = ""
+    Argument10 = ""
+    
+    #print("text: " + Command + " | 1: " + Argument + " | 2: " + Argument2 + " | 3: " + Argument3 + " | 4: " + Argument4 + " | 5: " + Argument5)
+    #print("1: " + Argument)
+    #print("2: " + Argument2)
+    #print("3: " + Argument3)
+    #print("4: " + Argument4)
+    
+    if (Command == "if") {
+        if (Argument == "1") {
+            if (Argument2 == Argument3) {
+                P[Argument4:toNumber(), number] = 1
+            } else {
+                P[Argument4:toNumber(), number] = 0
+            }
+        } elseif (Argument == "2") {
+            if (Argument2 & Argument3) {
+                P[Argument4:toNumber(), number] = 1
+            } else {
+                P[Argument4:toNumber(), number] = 0
+            }
+        }
+    } elseif (Command == "GetMem") {
+        if (Argument == "1") {
+            Getmemory = 1
+        } elseif (Argument == "0") {
+            Getmemory = 0 
+        } 
+    } elseif (Command == "Wait") {
+        P[Argument2:toNumber(), number] = 0
+        
+        timer("WaitFunc", Argument:toNumber())
+        if (!clk("WaitFunc")) {
+            Code = ""
+        } else {
+            P[Argument2:toNumber(), number] = Argument2:toNumber()
+            stoptimer("WaitFunc")
+        }
+    } elseif (Command == "AddProgram") {
+        ProgramLinkPlugin[ProgramLinkPlugin:count()+1,string] = Argument
+        ProgramLinkPlugin[ProgramLinkPlugin:count()+1,string] = Argument2
+        ProgramLinkPlugin[ProgramLinkPlugin:count()+1,number] = Plugin
+    }
+}
+
+function void pluginDetectandExecCode() {
+    if (PluginTable[0, string] == PluginSlot1["Name", string]) {
+        local Text1 = Arrtest1:toString()
+        local Text2 = PluginSlot1["ArrayOut", array]:toString()
+        if (Text1 == Text2) {
+            if (HowMany1 >= 1) {
+            } else {
+                HowMany1 += 1
+            }
+        } else {
+            PluginTable[4, string] = "Active"
+            HowMany1 = 0
+            Arrtest1 = PluginSlot1["ArrayOut", array]:clone()
+        }
+        if (HowMany1 >= 1) {
+             PluginTable[4, string] = "Idle"
+        } else {
+            for (I = 0, PluginSlot1["ArrayOut", array]:count()) {
+                local Array = PluginSlot1["ArrayOut", array]
+                if (Array[I, string]:length() > 1) {
+                    if (Array[I, string]:sub(1,4) == "PCC(") {
+                        local R1 = Array[I, string]:replace("PCC(", "")
+                        local R2 = R1:replace(")","")
+                        #print("Text1: " + R2)
+                        pluginExecCustomCode(R2, 1)
+                    } elseif (Array[I, string]:sub(1,3) == "PE(") {
+                        local R1 = Array[I, string]:replace("PE(", "")
+                        local R2 = R1:replace(")","")
+                        #print("Text1: " + R2)
+                        peCode(R2)
+                    } elseif (Array[I, string]:sub(1,11) == "DONTDETECT=") {
+                        addTextToTable("",vec(255,255,255))
+                    } else {
+                        commander(Array[I, string])
+                    }
+                }
+            }
+        }
+    }
+    if (PluginTable[5, string] == PluginSlot2["Name", string]) {
+        local Text1 = Arrtest2:toString()
+        local Text2 = PluginSlot2["ArrayOut", array]:toString()
+        if (Text1 == Text2) {
+            if (HowMany2 >= 1) {
+            } else {
+                HowMany2 += 1
+            }
+        } else {
+            PluginTable[9, string] = "Active"
+            HowMany2 = 0
+            Arrtest2 = PluginSlot2["ArrayOut", array]:clone()
+        }
+        if (HowMany2 >= 31) {
+             PluginTable[9, string] = "Idle"
+        } else {
+            for (I = 0, PluginSlot2["ArrayOut", array]:count()) {
+                local Array = PluginSlot2["ArrayOut", array]
+                if (Array[I, string]:length() > 1) {
+                    if (Array[I, string]:sub(1,4) == "PCC(") 
+                    {
+                        local R1 = Array[I, string]:replace("PCC(", "")
+                        local R2 = R1:replace(")","")
+                        #print("Text1: " + R2)
+                        pluginExecCustomCode(R2, 2)
+                    } elseif (Array[I, string]:sub(1,3) == "PE(") {
+                        local R1 = Array[I, string]:replace("PE(", "")
+                        local R2 = R1:replace(")","")
+                        #print("Text1: " + R2)
+                        peCode(R2)
+                    } elseif (Array[I, string]:sub(1,11) == "DONTDETECT=") {
+                        addTextToTable("",vec(255,255,255))
+                    } else {
+                        commander(Array[I, string])
+                    }
+                }
+            }
+        }
+    }
+    if (PluginTable[10, string] == PluginSlot3["Name", string]) {
+        local Text1 = Arrtest3:toString()
+        local Text2 = PluginSlot3["ArrayOut", array]:toString()
+        if (Text1 == Text2) {
+            if (HowMany3 >= 1) {
+            } else {
+                HowMany3 += 1
+            }
+        } else {
+            PluginTable[14, string] = "Active"
+            HowMany3 = 0
+            Arrtest3 = PluginSlot3["ArrayOut", array]:clone()
+        }
+        if (HowMany3 >= 1) {
+             PluginTable[14, string] = "Idle"
+        } else {
+            for (I = 0, PluginSlot3["ArrayOut", array]:count()) {
+                local Array = PluginSlot3["ArrayOut", array]
+                if (Array[I, string]:length() > 1) {
+                    if (Array[I, string]:sub(1,4) == "PCC(") 
+                    {
+                        local R1 = Array[I, string]:replace("PCC(", "")
+                        local R2 = R1:replace(")","")
+                        #print("Text1: " + R2)
+                        pluginExecCustomCode(R2, 3)
+                    } elseif (Array[I, string]:sub(1,3) == "PE(") {
+                        local R1 = Array[I, string]:replace("PE(", "")
+                        local R2 = R1:replace(")","")
+                        #print("Text1: " + R2)
+                        peCode(R2)
+                    } elseif (Array[I, string]:sub(1,11) == "DONTDETECT=") {
+                        addTextToTable("",vec(255,255,255))
+                    } else {
+                        commander(Array[I, string])
+                    }
+                }
+            }
+        }
+    }
+    if (PluginTable[15, string] == PluginSlot4["Name", string]) {
+        local Text1 = Arrtest4:toString()
+        local Text2 = PluginSlot4["ArrayOut", array]:toString()
+        if (Text1 == Text2) {
+            if (HowMany4 >= 1) {
+            } else {
+                HowMany4 += 1
+            }
+        } else {
+            PluginTable[19, string] = "Active"
+            HowMany4 = 0
+            Arrtest4 = PluginSlot4["ArrayOut", array]:clone()
+        }
+        if (HowMany4 >= 1) {
+             PluginTable[19, string] = "Idle"
+        } else {
+            for (I = 0, PluginSlot4["ArrayOut", array]:count()) {
+                local Array = PluginSlot4["ArrayOut", array]
+                if (Array[I, string]:length() > 1) {
+                    if (Array[I, string]:sub(1,4) == "PCC(") 
+                    {
+                        local R1 = Array[I, string]:replace("PCC(", "")
+                        local R2 = R1:replace(")","")
+                        #print("Text1: " + R2)
+                        pluginExecCustomCode(R2, 4)
+                    } elseif (Array[I, string]:sub(1,3) == "PE(") {
+                        local R1 = Array[I, string]:replace("PE(", "")
+                        local R2 = R1:replace(")","")
+                        #print("Text1: " + R2)
+                        peCode(R2)
+                    } elseif (Array[I, string]:sub(1,11) == "DONTDETECT=") {
+                        addTextToTable("",vec(255,255,255))
+                    } else {
+                        commander(Array[I, string])
+                    }
+                }
+            }
+        }
+    }
+    if (PluginTable[20, string] == PluginSlot5["Name", string]) {
+        local Text1 = Arrtest5:toString()
+        local Text2 = PluginSlot5["ArrayOut", array]:toString()
+        if (Text1 == Text2) {
+            if (HowMany5 >= 1) {
+            } else {
+                HowMany5 += 1
+            }
+        } else {
+            PluginTable[24, string] = "Active"
+            HowMany5 = 0
+            Arrtest5 = PluginSlot5["ArrayOut", array]:clone()
+        }
+        if (HowMany5 >= 1) {
+             PluginTable[24, string] = "Idle"
+        } else {
+            #addTextToTable("Comming in instructions from: " + PluginSlot5["Name", string], vec(255,255,0))
+            for (I = 0, PluginSlot5["ArrayOut", array]:count()) {
+                local Array = PluginSlot5["ArrayOut", array]
+                if (Array[I, string]:length() > 1) {
+                    if (Array[I, string]:sub(1,4) == "PCC(") 
+                    {
+                        local R1 = Array[I, string]:replace("PCC(", "")
+                        local R2 = R1:replace(")","")
+                        #print("Text1: " + R2)
+                        pluginExecCustomCode(R2, 5)
+                    } elseif (Array[I, string]:sub(1,3) == "PE(") {
+                        local R1 = Array[I, string]:replace("PE(", "")
+                        local R2 = R1:replace(")","")
+                        #print("Text1: " + R2)
+                        peCode(R2)
+                    } elseif (Array[I, string]:sub(1,11) == "DONTDETECT=") {
+                        addTextToTable("",vec(255,255,255))
+                    } else {
+                        commander(Array[I, string])
+                    }
+                }
+            }
+        }
+    }
+}
+
+# The rest
+if (first() | dupefinished()) {
+    NextLineY = 0 # Text postion index (DO NOT TOUCH)
+    NextLine = 1 # Text starting index (DO NOT TOUCH)
+    UserState = 0 # User Loged in status (DO NOT TOUCH)
+    WaitForCommand = 0 # Wait function to stop interval (Doesn't work, removed!)
+    CurrentDirectory = "Sys/HDD/" # Starting Directory
+    ChangeScrollMode = 0 # Sets scroll mode
+    Debug = 0 # Debug mode
+    MediumChoice = 1 # Medium to access with (HDD)
+
+    # Startup Plugins  
+    pluginRegestraionandAddingFunction()
+    
+    #timer("timerToClear", 3000)
+    
+    #if (clk("timerToClear")) {
+    #    clearDisplayTable()
+    #}
+    
+    # Startup
+    addTextToTable("Expression Mistra (Alpha 3)", vec(255, 255, 255))
+    addTextToTable("", vec(255, 255, 255))
+    testHardware()
+    
+    if (isSinglePlayer()) {
+        addTextToTable("", vec(255, 255, 255))
+        addTextToTable("Singleplayer mode detected! Changing scroll type because of limitations", vec(255, 255, 255))
+        csp()
+    }
+    #addTextToTable("No user detected!", vec(255, 255, 255))
+    #addTextToTable("Press [Enter] to start user creation.", vec(255, 255, 255))
+    createUserTable(1, 1, "root", "")
+    
+    if (detectUser()) {
+        UserState = 1
+        addTextToTable("", vec(255, 255, 255))
+        addTextToTable("Welcome to Expression Mistra!", vec(255, 255, 255))
+        entity():soundPlay(0, 0, "drones/alarm.wav")
+        clock()
+        addTextToTable("Write 'help' to know commands.", vec(255, 255, 255))
+        grandUserFunctions()
+    } else {
+        Userstate = 0
+    }
+}
+
+if (dupefinished()) {
+    reset()
+}
+
+if (UserState <= 0){
+    if (UserState == 0) {
+        UserState = -1
+        addTextToTable("", vec(255, 255, 255))
+        addTextToTable("No user detected!", vec(255, 255, 255))
+        addTextToTable("Press [Enter] to start user creation.", vec(255, 255, 255))
+    }
+    if (UserEntity:keyPressed("Enter") && changed(UserEntity:keyPressed("Enter")) && UserState == -1) {
+        UserState = -2
+    } elseif (UserEntity:keyPressed("Enter") && changed(UserEntity:keyPressed("Enter")) && KeysTyped:length() > 0 && UserState == -2) {
+        UserN = KeysTyped
+        clearKeyboard()
+        UserState = -3
+    } elseif (UserEntity:keyPressed("Enter") && changed(UserEntity:keyPressed("Enter")) && KeysTyped:length() > 0 && UserState == -3) {
+        UserPass = KeysTyped
+        clearKeyboard()
+        UserState = -4
+    }
+    
+    if (UserState == -2) {
+        if (UserEntity:keyPressed(Keyboard) && changed(Keyboard)) {
+            KeysTyped = KeysTyped + Keyboard
+        }
+        if (KeysTyped:find("\n")) {
+            KeysTyped = KeysTyped:replace("\n", "")
+        }
+        if (UserEntity:keyPressed("Backspace") && changed(UserEntity:keyPressed("Backspace"))) {
+            # Ensure KeysTyped is not empty before trying to remove the last character
+            if (KeysTyped:length() > 0) {
+                KeysTyped = KeysTyped:sub(1, KeysTyped:length() - 1)
+            }
+        }
+        editTextToTable(HowManyLines - 1, "Set name: " + KeysTyped, vec(255, 255, 255))
+    } elseif (UserState == -3) {
+        if (UserEntity:keyPressed(Keyboard) && changed(Keyboard)) {
+            KeysTyped = KeysTyped + Keyboard
+        }
+        if (KeysTyped:find("\n")) {
+            KeysTyped = KeysTyped:replace("\n", "")
+        }
+        if (UserEntity:keyPressed("Backspace") && changed(UserEntity:keyPressed("Backspace"))) {
+            # Ensure KeysTyped is not empty before trying to remove the last character
+            if (KeysTyped:length() > 0) {
+                KeysTyped = KeysTyped:sub(1, KeysTyped:length() - 1)
+            }
+        }
+        editTextToTable(HowManyLines - 1, "Set password: " + KeysTyped, vec(255, 255, 255))
+    } elseif (UserState == -4) {
+        editTextToTable(HowManyLines - 1, "User added!", vec(255, 255, 255))
+        createUserTable(1,1,UserN,UserPass)
+        UserN = ""
+        UserPass = ""
+        UserState = 1
+        addTextToTable("", vec(255, 255, 255))
+        addTextToTable("Welcome to Expression Mistra!", vec(255, 255, 255))
+        entity():soundPlay(0, 0, "ambient/tones/elev1.wav")
+        clock()
+        addTextToTable("Write 'help' to know commands.", vec(255, 255, 255))
+        grandUserFunctions()
+    }
+}
+
+if (detectUser() && ProgramRunningUsingKeyboard == 0) {
+    # Remove "Enter" from the text if detected
+    if (UserEntity:keyPressed(Keyboard) && changed(Keyboard)) {
+        KeysTyped = KeysTyped + Keyboard
+    }
+    
+    if (UserEntity:keyPressed("Space") && changed(UserEntity:keyPressed("Space"))) {
+        KeysTyped = KeysTyped + " "
+    }
+    if (UserEntity:keyPressed("Minus") && changed(UserEntity:keyPressed("Minus"))) {
+        KeysTyped = KeysTyped + "/"
+    }
+    if (UserEntity:keyPressed("Slash") && changed(UserEntity:keyPressed("Slash"))) {
+        KeysTyped = KeysTyped + "/"
+    }
+    if (UserEntity:keyPressed("Period") && changed(UserEntity:keyPressed("Period"))) {
+        KeysTyped = KeysTyped + "."
+    }
+    if (UserEntity:keyPressed("Backspace") && changed(UserEntity:keyPressed("Backspace"))) {
+        # Ensure KeysTyped is not empty before trying to remove the last character
+        if (KeysTyped:length() > 0) {
+            KeysTyped = KeysTyped:sub(1, KeysTyped:length() - 1)
+        }
+    }
+    
+    if (KeysTyped:find("\n")) {
+        KeysTyped = KeysTyped:replace("\n", "")
+    }
+
+    editTextToTable(HowManyLines - 1, "[" + User[3, string] + "][" + CurrentDirectory + "]#: " + KeysTyped, vec(255, 255, 255))
+    
+    WaitForCommand = 1
+    local EnterPressed = UserEntity:keyPressed("Enter")
+    
+    if (UserEntity:keyPressed("Enter") && changed(UserEntity:keyPressed("Enter")) && KeysTyped:length() > 0 ) {
+        WaitForCommand = 0
+        removeTextToTable(HowManyLines - 1)
+        commander(KeysTyped)
+        clearKeyboard()
+        grandUserFunctions()
+    }
+    
+}
+
+if (ProgramRunningUsingKeyboard == 1) {
+    
+}
+
+updateScreen()
+pluginDetectandExecCode()

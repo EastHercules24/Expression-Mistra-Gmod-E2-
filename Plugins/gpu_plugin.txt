@@ -1,0 +1,70 @@
+@name Gpu Plugin
+@inputs ArrayIn:array EGP:wirelink SystemRegistered
+@outputs Name:string Version:string Maker:string Extra:string ArrayOut:array
+@persist DisplayTable:array EGP:wirelink Numb Array:string
+@model models/props/cs_office/computer_caseb_p2a.mdl
+@trigger
+#runOnTick(1)
+
+# Information
+Name = "Gpu Plugin"
+Version = "1.1.0"
+Maker = "Made by HellYeah24"
+Extra = "For better performance :P"
+
+DisplayTable = ArrayIn
+#DataOut = ArrayIn
+#DisplayTable = DataIn
+
+function void updateScreen() {
+    if (!EGP) { return }
+    EGP:egpClear()
+    if (ArrayIn == array()) {
+        EGP:egpText(3, "This gpu is not displaying anything", vec2(115,200))
+        EGP:egpColor(3, vec(255,255,0))
+        EGP:egpSize(3, 20)
+        EGP:egpText(1, "Check in your script if GetMem is set to 0 and set it to 1", vec2(27, 240))
+        EGP:egpColor(1, vec(255,255,0))
+        EGP:egpSize(1, 20)
+        EGP:egpText(2, "or check if ArrayIn is connected to DisplayTableOut", vec2(45, 260))
+        EGP:egpColor(2, vec(255,255,0))
+        EGP:egpSize(2, 20)
+        EGP:egpText(4, "or the system is just offline or there is nothing to display", vec2(25, 280))
+        EGP:egpColor(4, vec(255,255,0))
+        EGP:egpSize(4, 20)
+    } else {
+        for (I = 1, DisplayTable:count(), 3) {
+            interval(1)
+            Text = DisplayTable[I, string]
+            Color = DisplayTable[I+1, vector]
+            Position = DisplayTable[I+2, vector2]
+            if (Text:length() > 0) {
+                EGP:egpText(I, Text, Position)
+                EGP:egpColor(I, Color)
+                EGP:egpSize(I, 16)
+            }
+        }
+    }
+}
+
+if (SystemRegistered == 1) {
+    # How to wirte code for the system to ask, use or do:
+    ArrayOut = array(
+    "PE(editprint 1 255 255 255  )",
+    "PE(print 255 255 0 Gpu Plugin - 1.1.0)",
+    "PE(print 255 255 255  )",
+    "PCC(GetMem 1)"
+    )
+
+    # Rest of functions
+    #print(DisplayTable)
+    if (ArrayIn:toString() == Array) {
+        Numb = Numb + 1
+    } else {
+        Numb = 0
+        Array = ArrayIn:toString()
+    }
+    if (Numb < 1) {
+        updateScreen()
+    }
+}
