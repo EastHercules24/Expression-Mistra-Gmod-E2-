@@ -1,0 +1,199 @@
+Welcome to the docs of Power Expression 1!
+
+This documentation will guide you how 2 code in PE (Power Expression 1)
+
+Lets GO!
+
+- Basic Things First! --------------------------------------------------
++ PE( <-- Write that at the start when you want your code to work.
++ ) <-- Use this to close the Code.
++ ){ <-- Do this if you need to write code for if, for statments.
++ } <-- Use this to close the Code Line.
+
+-- This is it
+------------------------------------------------------------------------
+
+- Code! ----------------------------------------------------------------
++ PE(
+  + print R G B Text
+	- R: The red value of the RGB spectrum
+	- G: The green value of the RGB spectrum
+	- B: The blue value of the RGB spectrum
+	- Text: your text
+	- Example: PE(print 255 0 100 Hi there!)
+	- Sys: -------------------------------------
+	Hi there!
+	[Root][Sys/HDD/]:>
+	--------------------------------------------
+	- Info: It adds a text to the screen
+
+  + printEdit Last R G B Text
+	- Last: The last text in the row
+	- R: The red value of the RGB spectrum
+	- G: The green value of the RGB spectrum
+	- B: The blue value of the RGB spectrum
+	- Text: your text
+	- Example: PE(print 255 0 100 Hi there!)
+		   PE(printEdit 1 255 0 0 no wait I changed my mind)
+	- Sys: -------------------------------------
+	no wait I changed my mind
+	[Root][Sys/HDD/]:>
+	--------------------------------------------
+	- Info: It edits the text from the last rows
+
+  + printDel Last
+	- Last: The last text in the row
+	- Example: PE(print 255 255 255 I AM A MISTAKE!)
+		   PE(print 255 0 100 Hi there!)
+		   PE(printDel 2)
+	- Sys: -------------------------------------
+	Hi there!
+	[Root][Sys/HDD/]:>
+	--------------------------------------------
+	- Info: It deletes the text from the last rows
+
+  + graphicAdd Text R G B SizeX SizeY PositionX1 PositionY1 PositionX2 PositionY2
+	- Text: your text
+	- R: The red value of the RGB spectrum
+	- G: The green value of the RGB spectrum
+	- B: The blue value of the RGB spectrum
+	- SizeX: The size of the object in the x direction
+	- SizeY: The size of the object in the y direction
+	- PositionX1: The position of the object in the x direction
+	- PositionY1: The position of the object in the y direction
+	- PositionX2: The position of the object in the x direction
+	- PositionY2: The position of the object in the y direction
+	- Example: PE(graphicAdd !Box! 255 255 0 50 60 100 40 0 0)
+	- Info: It adds a graphic to the screen
+
+  + graphicEdit Last Text R G B SizeX SizeY PositionX1 PositionY1 PositionX2 PositionY2
+	- Last: The last graphic in the row
+	- Text: your text
+	- R: The red value of the RGB spectrum
+	- G: The green value of the RGB spectrum
+	- B: The blue value of the RGB spectrum
+	- SizeX: The size of the object in the x direction
+	- SizeY: The size of the object in the y direction
+	- PositionX1: The position of the object in the x direction
+	- PositionY1: The position of the object in the y direction
+	- PositionX2: The position of the object in the x direction
+	- PositionY2: The position of the object in the y direction
+	- Example: PE(graphicEdit 1 !Circle! 255 255 0 50 60 100 40 0 0)
+	- Info: It edits a graphic from the screen (last row system)
+
+  + graphicDel Last
+	- Last: The last graphic in the row
+	- Example: PE(graphicDel 1)
+	- Info: It deletes a graphic from the screen (last row system)
+
+  + if Contition {Code}
+	- Contition: true or false
+	- Code: the code that should be run
+	- Example: PE(if 1){
+		   PE(print 255 0 100 Test)
+		   }
+	- Sys: -------------------------------------
+	Test
+	[Root][Sys/HDD/]:>
+	--------------------------------------------
+	- Info: runs code every time the the Contition is true
+
+  + for Start End Step {Code}
+	- Start: Starting number value
+	- End: Ending number value
+	- Step: How many steps it should do
+	- Code: the code that should be run
+	- Example: PE(for 0 2 1){
+		   PE(print 255 0 100 Test)
+		   }
+	- Sys: -------------------------------------
+	Test
+	Test
+	Test
+	[Root][Sys/HDD/]:>
+	--------------------------------------------
+	- Info: runs code untill end
+
+  + setVal ValueName Value
+	- ValueName: The name of the value in the table
+	- Value: The value that will be saved
+	- Example: PE(setVal TurnSomethingOn 1)
+	- Info: Adds a value that is saved in the table
+
+  + getVal ValueName
+	- ValueName: The name of the value in the table
+	- Example: PE(getVal TurnSomethingOn){
+	- Info: Gets the asked value in the table
+
+  + makeProgramWork Value
+	- Value: Value that turns on the command line on or off
+	- Example: PE(makeProgramWork 1)
+		   PE(print 255 0 100 Test)
+	- Sys: -------------------------------------
+	Test
+	--------------------------------------------
+	- Info: 1 = Off | 0 = On
+
+  + createFile Name
+	- Name: A name for the new file in the selected system directory
+	- Example: PE(createFile OfficeStuff)
+	- Info: Creates a file
+
+  + createFolder Name
+	- Name: A name for the new folder in the selected system directory
+	- Example: PE(createFolder Bin)
+	- Info: Creates a folder
+	
+  + removeFile Name
+	- Name: Removes a file or folder called the same name in the selected system directory
+	- Example: PE(removeFile Bin)
+	- Info: Removes a file or folder
+
+  + changeMedium Value
+	- Value: A number value
+	- Example: PE(changeMedium 2)
+	- Sys: -------------------------------------
+	[Root][Sys/USB/]:>
+	--------------------------------------------
+	- Info: Changes the medium where files are saved (1 = HDD | 2 = USB | 3 = CD)
+
+  + changeDirectory Value
+	- Value: The name of the folder
+	- Example: PE(changeDirectory Bin)
+	- Sys: -------------------------------------
+	[Root][Sys/HDD/Bin]:>
+	--------------------------------------------
+	- Info: Changes the directory to the other directory in the selected system directory
+  
+  + run File
+	- File: the name of the file in the selected system directory
+	- Example: PE(run Program)
+	- Sys: -------------------------------------
+	Starting: Program
+	[Root][Sys/USB/]:>
+	--------------------------------------------
+	- Info: Runs a file
+
+  + setPluginArray Value {Code/Info}
+	- Value: the plugin row number value
+	- Code/Info: all the info and code that needs to be transfered
+	- Example: PE(setPluginArray 4){
+	DONTDETECT=1
+	0
+	Yo
+	PE(print 255 255 255 hi there!)
+	}
+	- Info: Gives info to the plugin
+
+  + clearScreen
+	- Info: clears the screen
+
+  + VerPE
+	- Info: Shows the version of the PE code function
+	- Example: PE(VerPE)
+	- Sys: -------------------------------------
+	Power Expression 1 - The Computers Powerhouse
+	[Root][Sys/USB/]:>
+	--------------------------------------------
+)
+------------------------------------------------------------------------

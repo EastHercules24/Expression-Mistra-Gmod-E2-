@@ -1,0 +1,37 @@
+How 2 setup the system:
+1. Spawn the main script (Expression_Mistra....txt)
+2. Spawn a keyboard
+3. Spawn a EGP display
+4. Spawn in a DHDD
+5. Spawn in a HDD Firmware Controler (hdd_firmware.txt in folder Extra)
+Optional:
+6. Spawn in a plugin
+
+Connecting:
+
+Keyboard:
+1. KeyboardEntity -> Create Entity / entity (Keyboard)
+2. Keyboard -> OutputChar (Keyboard)
+3. UserEntity -> User (Keyboard)
+
+HDD:
+1. HDD -> Create Entity / entity (HDD Firmware)
+2. HDDRead -> Output (HDD Firmware)
+3. Input (HDD Firmware) -> HDDWrite
+4. OutputHDD (HDD Firmware) -> Memory (DHDD)
+5. Data (DHDD) -> InputHDD (HDD Firmware)
+
+EGP Display:
+1. EGP -> wirelink (Screen)
+
+Optional:
+1. Spawn in the gpu plugin
+2. PluginSlot1-5 -> Create Wirelink / wirelink (Plugin)
+3. ArrayIn (Plugin) -> DisplayTableOut
+4. EGP -> wirelink (Screen)
+-------------------------------------------------------
+1. Spawn in the 2d accelerated gpu plugin
+2. PluginSlot1-5 -> Create Wirelink / wirelink (Plugin)
+3. ArrayIn (Plugin) -> DisplayTableOut
+4. GraphicArrayIn (Plugin) -> GraphicDisTableOut
+5. EGP -> wirelink (Screen)

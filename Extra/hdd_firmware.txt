@@ -1,0 +1,14 @@
+@name HDD Firmware
+@inputs Input:array OutputHDD:array FormatDrive
+@outputs Output:array InputHDD:array
+@persist Data:array
+
+if (Input:count() == 0) {
+}else{
+    Data = Input
+}
+if (FormatDrive) {
+    Data = array()
+}
+InputHDD = Data
+Output = OutputHDD
